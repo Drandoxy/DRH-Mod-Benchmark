@@ -1,0 +1,9 @@
+*.zip
+/benchmark-*.json
+/verification.json
+/.benchmark-test-*/
+/__pycache__/
+*.pyc
+*.jsonl
+/data/
+/dist/

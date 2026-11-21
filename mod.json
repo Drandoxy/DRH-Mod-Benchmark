@@ -1,0 +1,13 @@
+{
+  "id": "benchmark",
+  "name": "Benchmark",
+  "description": "Live FPS and ping with optional gameplay recording and controlled animation tests.",
+  "version": "0.1.21",
+  "author": "Drandox",
+  "api": "1.5.0",
+  "drh": "18",
+  "entry": "Main",
+  "uses": [
+    "extends"
+  ]
+}
