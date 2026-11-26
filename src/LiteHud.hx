@@ -19,11 +19,13 @@ class LiteHud extends Sprite {
 
 	var fpsText:TextField;
 	var pingText:TextField;
-	/** Optional RAM and CPU readings, each an icon, a name and a value next to FPS and ping. */
+	/** Optional CPU, GPU VRAM and RAM readings, each an icon, a name and a value, between FPS and ping. */
 	var ramGroup:Sprite;
 	var ramText:TextField;
 	var cpuGroup:Sprite;
 	var cpuText:TextField;
+	var vramGroup:Sprite;
+	var vramText:TextField;
 	var fpsGroup:Sprite;
 	var pingGroup:Sprite;
 	/** Each reading's value field, to size the reading by the value it shows right now. */
@@ -68,9 +70,11 @@ class LiteHud extends Sprite {
 		ramText = group(ramGroup, "memory-stick", "RAM", 0xB9A6F2);
 		cpuGroup = new Sprite();
 		cpuText = group(cpuGroup, "cpu", "CPU", 0x7FC1F0);
+		vramGroup = new Sprite();
+		vramText = group(vramGroup, "monitor", "VRAM", 0xF0A3C0);
 		addChild(fpsGroup);
 		addChild(pingGroup);
-		arrange(false, false);
+		arrange(false, false, false);
 		grip = new Sprite();
 		addChild(grip);
 		grip.x = panelW - 18;
@@ -104,22 +108,27 @@ class LiteHud extends Sprite {
 	/** Re-arranges the row only when a value's width really changed (new digit count), not every update. */
 	function rearrange():Void {
 		var key = "";
-		for (item in [fpsGroup, pingGroup, ramGroup, cpuGroup])
+		for (item in order())
 			if (item.parent != null)
 				key += Math.round(values.get(item).textWidth) + ",";
 		if (key == laidOut)
 			return;
-		arrange(ramGroup.parent != null, cpuGroup.parent != null);
+		arrange(ramGroup.parent != null, cpuGroup.parent != null, vramGroup.parent != null);
 		viewW = -1;
 		layout(lastW, lastH);
 	}
 
+	/** Left to right: FPS, CPU, GPU VRAM, RAM, Ping. */
+	function order():Array<Sprite> {
+		return [fpsGroup, cpuGroup, vramGroup, ramGroup, pingGroup];
+	}
+
 	/** Lays the shown readings out left to right with even gaps; the panel is as wide as they need. */
-	function arrange(showRam:Bool, showCpu:Bool):Void {
+	function arrange(showRam:Bool, showCpu:Bool, showVram:Bool):Void {
 		var at = MARGIN;
 		laidOut = "";
-		var items = [fpsGroup, pingGroup, ramGroup, cpuGroup];
-		var shownList = [true, true, showRam, showCpu];
+		var items = order();
+		var shownList = [true, showCpu, showVram, showRam, true];
 		for (i in 0...items.length) {
 			var item = items[i];
 			var shown = shownList[i];
@@ -178,19 +187,23 @@ class LiteHud extends Sprite {
 		rearrange();
 	}
 
-	/** RAM and CPU values next to FPS and ping; null hides that reading. The panel widens to fit them. */
-	public function setStats(ram:Null<String>, cpu:Null<String>):Void {
+	/** CPU, GPU VRAM and RAM values between FPS and ping; null hides that reading. The panel widens to fit them. */
+	public function setStats(ram:Null<String>, cpu:Null<String>, vram:Null<String>):Void {
 		if (ram != null && ramText.text != ram)
 			ramText.text = ram;
 		if (cpu != null && cpuText.text != cpu)
 			cpuText.text = cpu;
+		if (vram != null && vramText.text != vram)
+			vramText.text = vram;
 		var showRam = ram != null;
 		var showCpu = cpu != null;
-		if (showRam == (ramGroup.parent != null) && showCpu == (cpuGroup.parent != null)) {
+		var showVram = vram != null;
+		if (showRam == (ramGroup.parent != null) && showCpu == (cpuGroup.parent != null)
+			&& showVram == (vramGroup.parent != null)) {
 			rearrange();
 			return;
 		}
-		arrange(showRam, showCpu);
+		arrange(showRam, showCpu, showVram);
 		viewW = -1;
 		layout(lastW, lastH);
 	}

@@ -210,9 +210,9 @@ class Checks {
 		uiRoot.addChild(ui);
 		ui.stage = new openfl.display.Stage();
 		ui.layout(1280, 720);
-		ui.update(true, 65, "60|30ms|N/A|N/A|N/A");
-		check(!ui.cards[2].visible && !ui.cards[3].visible && !ui.cards[4].visible && ui.timer.text == "01:05", "unavailable cards or timer layout");
-		check(ui.cards[1].x - ui.cards[0].x == 156 && ui.panelHeight == 290, "compact spacing changed");
+		ui.update(true, 65, "60|N/A|N/A|N/A|N/A|30ms");
+		check(!ui.cards[1].visible && !ui.cards[2].visible && !ui.cards[3].visible && !ui.cards[4].visible && ui.timer.text == "01:05", "unavailable cards or timer layout");
+		check(ui.cards[5].x - ui.cards[0].x == 156 && ui.panelHeight == 290, "compact spacing changed");
 		check(ReportMarkup.select("YOUR RESULTS, EXPLAINED\nMost frames <safe>\nTECHNICAL DETAILS\nraw", false).indexOf("<safe>") >= 0,
 			"plain report did not preserve literal content");
 		check(ReportMarkup.select("Summary\nTECHNICAL DETAILS\nraw", false).indexOf("raw") < 0, "summary includes technical noise");
@@ -358,7 +358,7 @@ class Checks {
 		idleApp.liteSince = haxe.Timer.stamp() * 1000 - 600;
 		idleApp.liteFrames = 71;
 		idleApp.frame(new openfl.events.Event());
-		check(!idleApp.active && idleApp.hud.metrics[0].text != "--" && idleApp.hud.metrics[1].text != "--", "idle full panel did not show live FPS/ping");
+		check(!idleApp.active && idleApp.hud.metrics[0].text != "--" && idleApp.hud.metrics[5].text != "--", "idle full panel did not show live FPS/ping");
 		idleApp.startCapacity();
 		check(!idleApp.capacity.running && idleApp.hud.popupHeight == 290, "capacity starts before crash warning confirmation");
 		idleApp.hud.closeReport();

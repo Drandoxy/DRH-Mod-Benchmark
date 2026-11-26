@@ -56,19 +56,19 @@ class Hud extends Sprite {
 			button(this, "Start full benchmark", "activity", 14, 91, 302, onCapacity);
 		if (onCapacityReport != null)
 			button(this, "Last full result", "file", 14, 133, 302, onCapacityReport);
-		for (i in 0...5) {
+		for (i in 0...6) {
 			var card = new Sprite();
 			addChild(card);
 			cards.push(card);
 			card.graphics.beginFill(0x243544);
 			card.graphics.drawRoundRect(0, 0, 146, 65, 6, 6);
 			card.graphics.endFill();
-			Icons.draw(card, ["activity", "network", "cpu", "monitor", "memory-stick"][i], 12, 11, 16);
-			text(card, ["FPS", "Ping", "CPU", "GPU", "RAM"][i], 35, 8, 99, 23, 12, 0x91AABC);
-			metrics.push(text(card, "--", 11, 30, 126, 29, 19, [0x72D5B1, 0xEBC77D, 0x87BFFF, 0xC4A3EB, 0xF0AA86][i]));
+			Icons.draw(card, ["activity", "cpu", "monitor", "monitor", "memory-stick", "network"][i], 12, 11, 16);
+			text(card, ["FPS", "CPU", "GPU", "GPU VRAM", "RAM", "Ping"][i], 35, 8, 99, 23, 12, 0x91AABC);
+			metrics.push(text(card, "--", 11, 30, 126, 29, 19, [0x72D5B1, 0x87BFFF, 0xC4A3EB, 0xF0A3C0, 0xF0AA86, 0xEBC77D][i]));
 		}
 		status = text(this, "Ready to record", 14, 175, 302, 23, 12, 0x94ABBB);
-		update(false, 0, "N/A|N/A|N/A|N/A|N/A");
+		update(false, 0, "N/A|N/A|N/A|N/A|N/A|N/A");
 	}
 
 	public function update(active:Bool, seconds:Int, values:String):Void {
@@ -85,7 +85,8 @@ class Hud extends Sprite {
 		for (i in 0...cards.length) {
 			var value = i < cells.length ? cells[i] : "N/A";
 			var available = value != "N/A" && value != "";
-			cards[i].visible = (i == 0 || i == 1 || available);
+			// FPS (first) and Ping (last) always show; the others only when they have a value.
+			cards[i].visible = (i == 0 || i == cards.length - 1 || available);
 			metrics[i].text = available ? value : "--";
 			if (cards[i].visible) {
 				cards[i].x = 14 + (count % 2) * 156;

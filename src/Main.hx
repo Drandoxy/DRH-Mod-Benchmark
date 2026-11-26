@@ -17,7 +17,11 @@ class Main extends mods.api.Mod {
 	var stats:SystemStats;
 	var showRam:Flag;
 	var showCpu:Flag;
+	var showVram:Flag;
 	var nextStats = 0.0;
+	var statCpu:Null<String> = null;
+	var statRam:Null<String> = null;
+	var statVram:Null<String> = null;
 	var liteSince = 0.0;
 	var probe = new NativeProbe();
 	var session:Session;
@@ -68,8 +72,9 @@ class Main extends mods.api.Mod {
 					lite.visible = shown && !full.value;
 			}));
 		full = ctx.settings.flag("fullBenchmark", "Full Benchmark", "On: full recording. Off: live FPS and ping.", false);
-		showRam = ctx.settings.flag("showRam", "Show game RAM usage", "Shows the game's memory use next to FPS and ping.", false);
-		showCpu = ctx.settings.flag("showCpu", "Show CPU", "Shows the game's share of your whole CPU next to FPS and ping.", false);
+		showCpu = ctx.settings.flag("showCpu", "Show CPU", "Shows the game's share of your whole CPU next to FPS.", false);
+		showVram = ctx.settings.flag("showVram", "Show GPU VRAM", "Shows the graphics memory the game uses next to FPS.", false);
+		showRam = ctx.settings.flag("showRam", "Show game RAM usage", "Shows the game's memory use next to FPS.", false);
 		stats = new SystemStats();
 		// Scene boundaries are API events. They are not inferred from native map internals.
 		subs.push(ctx.onFloorEnter(function(_) boundary("floor-enter")));
@@ -99,7 +104,7 @@ class Main extends mods.api.Mod {
 			ctx.overlay.stage.addEventListener(Event.ACTIVATE, activate);
 			ctx.overlay.stage.addEventListener(Event.DEACTIVATE, deactivate);
 		}
-		hud.update(false, 0, "N/A|N/A|N/A|N/A|N/A");
+		hud.update(false, 0, "N/A|N/A|N/A|N/A|N/A|N/A");
 		if (capacity.interrupted()) {
 			full.value = true;
 			shown = true;
@@ -279,12 +284,8 @@ class Main extends mods.api.Mod {
 				gpuGauge.add(process.gpu);
 				ramGauge.add(process.ram);
 			}
-			hud.update(true, elapsed,
-				cell(Std.string(FrameWindow.round(fps)))
-				+ cell(metric(ping, "ms"))
-				+ cell(metric(process == null ? null : process.cpu, "%"))
-				+ cell(metric(process == null ? null : process.gpu, "%"))
-				+ memory(process == null ? null : process.ram));
+			refreshStats(entered);
+			hud.update(true, elapsed, fullCells(fps, ping, process));
 		}
 		framePhase = "window summary";
 		if (entered >= nextWrite) {
@@ -295,29 +296,70 @@ class Main extends mods.api.Mod {
 	}
 
 	/** RAM, CPU and GPU lines for the compact display: read once a second, and only those switched on. */
-	function updateStats(now:Float):Void {
-		if (!showRam.value && !showCpu.value) {
-			lite.setStats(null, null);
+	/** The game's renderer, for the GPU memory reading. */
+	function painter():starling.rendering.Painter {
+		var facade = ctx.core.facade;
+		var manager = facade == null ? null : facade.starlingLayerManager;
+		var engine:starling.core.Starling = manager == null ? null : manager.starlingInstance;
+		if (engine == null)
+			engine = starling.core.Starling.current;
+		return engine == null ? null : engine.painter_instance;
+	}
+
+	/**
+	 * In-game CPU, GPU VRAM and RAM readings, refreshed once a second for the switches that are on (a switch turned
+	 * off clears its reading at once). Both the compact display and the full window show them.
+	 */
+	function refreshStats(now:Float):Void {
+		if (!showCpu.value) {
+			statCpu = null;
 			stats.resetCpu();
-			return;
 		}
+		if (!showRam.value)
+			statRam = null;
+		if (!showVram.value)
+			statVram = null;
+		if (!showRam.value && !showCpu.value && !showVram.value)
+			return;
 		if (now < nextStats)
 			return;
 		nextStats = now + 1000;
 		try {
-			if (!showCpu.value)
-				stats.resetCpu();
-			lite.setStats(showRam.value ? stats.ram() : null, showCpu.value ? stats.cpu() : null);
+			if (showCpu.value)
+				statCpu = stats.cpu();
+			if (showRam.value)
+				statRam = stats.ram();
+			if (showVram.value)
+				statVram = stats.vram(painter());
 		} catch (error:Dynamic) {
-			Faults.report("compact system readings", error);
+			Faults.report("system readings", error);
 		}
+	}
+
+	/**
+	 * The full window's cards, in display order: FPS, CPU, GPU load, GPU VRAM, RAM, Ping. CPU and RAM come from the
+	 * optional process sampler when it runs, else from the in-game readings that are switched on; GPU load only
+	 * exists with the sampler. Unavailable cards are hidden.
+	 */
+	function fullCells(fps:Float, ping:Dynamic, process:Dynamic):String {
+		var cpu = process != null && process.cpu != null ? metric(process.cpu, "%") : statCpu;
+		var ram = process != null && process.ram != null ? memory(process.ram) : statRam;
+		return [
+			Std.string(FrameWindow.round(fps)),
+			cpu == null ? "N/A" : cpu,
+			metric(process == null ? null : process.gpu, "%"),
+			statVram == null ? "N/A" : statVram,
+			ram == null ? "N/A" : ram,
+			metric(ping, "ms")
+		].join("|");
 	}
 
 	function updateIdle(compact:Bool):Void {
 		liteFrames++;
 		var now = haxe.Timer.stamp() * 1000;
+		refreshStats(now);
 		if (compact)
-			updateStats(now);
+			lite.setStats(statRam, statCpu, statVram);
 		if (now - liteSince < 500)
 			return;
 		var ping:Dynamic = null;
@@ -332,7 +374,7 @@ class Main extends mods.api.Mod {
 		if (compact)
 			lite.update(current, ping);
 		else
-			hud.update(false, elapsed, cell(Std.string(FrameWindow.round(current))) + cell(metric(ping, "ms")) + "N/A|N/A|N/A");
+			hud.update(false, elapsed, fullCells(current, ping, null));
 		liteFrames = 0;
 		liteSince = now;
 	}
@@ -584,9 +626,6 @@ class Main extends mods.api.Mod {
 
 	static function metric(value:Dynamic, suffix:String):String
 		return value == null ? "N/A" : Std.string(FrameWindow.round(value)) + suffix;
-
-	static function cell(value:String):String
-		return value + "|";
 
 	override public function dispose():Void {
 		if (capacity != null)

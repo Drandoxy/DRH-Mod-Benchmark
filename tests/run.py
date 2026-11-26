@@ -14,14 +14,15 @@ for module in ['Session.hx','CompactLog.hx','NativeProbe.hx']:
 main_source = (root / 'src/Main.hx').read_text()
 assert 'root.mask = clip' in (root / 'src/AnimationBench.hx').read_text(), 'Surface clipping removed'
 assert '1152' not in (root / 'src/AnimationBench.hx').read_text(), 'Forced effect enlargement reintroduced'
-assert main_source.count('ctx.settings.flag(') == 3 and 'ctx.settings.button(' not in main_source, 'Extra settings controls reintroduced'
+assert main_source.count('ctx.settings.flag(') == 4 and 'ctx.settings.button(' not in main_source, 'Extra settings controls reintroduced'
 assert 'openfl.system.System.totalMemory' not in (root / 'src/Main.hx').read_text(), 'Unsupported V18 static binding reintroduced'
 stubs = {
     'starling/StatusTintFilter.hx':'package starling;class StatusTintFilter {public function new(){}public function set(c:UInt,a:Float){}public function get_matrix():Dynamic{return null;}}',
     'starling/textures/Texture.hx':'package starling.textures;class Texture {public function new(){}}',
     'starling/display/Image.hx':'package starling.display;class Image extends DisplayObject {public var width=0.;public var height=0.;public function new(t:starling.textures.Texture){super();}}',
 
-    'starling/rendering/Painter.hx':'package starling.rendering;class Painter {public var drawCount=5;public function new(){}}',
+    'openfl/display3D/Context3D.hx':'package openfl.display3D;class Context3D {public var totalGPUMemory=0;public function new(){}}',
+    'starling/rendering/Painter.hx':'package starling.rendering;class Painter {public var drawCount=5;public var context:openfl.display3D.Context3D=null;public function new(){}}',
     'starling/display/Sprite.hx':'package starling.display;class Sprite extends DisplayObjectContainer {public static var failRender=false;public var touchable=true;public function new(){super();}public function dispose(){}public function setRequiresRedraw(){}public function render(painter:starling.rendering.Painter):Void{if(failRender)throw "missing render texture";} }',
     'starling/display/Quad.hx':'package starling.display;class Quad extends DisplayObject {public function new(w:Float,h:Float,c:Int){super();}}',
     'brain/assetRepository/AssetLoadingComponent.hx':'''package brain.assetRepository;class AssetLoadingComponent {public var failQueue=false;public var missingTexture=false;public var missingSymbol="";public var defer=false;public var deferred:Void->Void;public function new(){}public function queueStarlingAssetsForPath(path:String,done:Void->Void){if(failQueue)throw "missing asset bundle";if(defer)deferred=done;else done();}public function queueStarlingAssets(key:String,done:Void->Void){done();}public function getTextureFromAssetManager(name:String,key:String):starling.textures.Texture{if(missingTexture)return null;return new starling.textures.Texture();}public function createAnimationFromAssetManager(name:String):starling.extensions.animate.Animation{if(name==missingSymbol)return null;return new starling.extensions.animate.Animation();}}''',

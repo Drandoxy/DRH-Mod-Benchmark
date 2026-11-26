@@ -5,7 +5,7 @@ Live FPS and ping, gameplay recordings and controlled animation tests for Dungeo
 <!-- drh:show -->
 A small, movable FPS and ping display works in town, loading screens and dungeons. Drag the panel to move it or its bottom-right corner to resize it. It can sit against the screen edges. FPS is green and ping is amber; unavailable values show a dash. Press F7 to show or hide the panel without stopping a recording. Rebind Show / hide Benchmark under Settings > CONTROLS > Benchmark. The game or OS can throttle rendering when unfocused.
 
-**Show game RAM usage and Show CPU** (Settings > Mods > Benchmark, off by default) add the game's memory use and its share of your whole CPU next to FPS and ping, updated once a second at almost no cost. A GPU load reading is not possible from inside the game.
+**Show CPU, Show GPU VRAM and Show game RAM usage** (Settings > Mods > Benchmark, off by default) add those readings to the compact display and the Full Benchmark window, in the order FPS, CPU, GPU VRAM, RAM, Ping. CPU is the game's share of your whole processor, GPU VRAM the graphics memory the game uses, RAM the memory the game uses. They update once a second at almost no cost. A GPU load reading is not possible from inside the game.
 
 **Full Benchmark is off by default.** Enable it in Settings > Mods > Benchmark for recording controls and detailed results. With it off, the display does not record performance history, scan animations or profile mods. It only counts frame callbacks, reads the existing heartbeat and refreshes text twice per second. Position and size are saved after adjustment.
 
@@ -23,11 +23,11 @@ Logs stay in the mod's local data folder; nothing is uploaded automatically. Old
 Missing or incompatible game assets stop the controlled test or skip the affected round with an error instead of escaping into normal gameplay. Native crashes and driver failures cannot be guaranteed recoverable.
 <!-- /drh:show -->
 
-![Compact display with FPS, ping, RAM and CPU](docs/compact-panel.png)
+![Compact display with FPS, CPU, GPU VRAM, RAM and Ping](docs/compact-panel.png)
 
 ## Installation and controls
 
-Install the release through the DRH Launcher, enable Benchmark and restart the game. Keep API enabled. The default compact display appears near the top center. Move it away from native HUD elements if needed. MODS settings: Full Benchmark and the two Show switches; recording controls belong to the full panel. No extra keyboard bindings are installed.
+Install the release through the DRH Launcher, enable Benchmark and restart the game. Keep API enabled. The default compact display appears near the top center. Move it away from native HUD elements if needed. MODS settings: Full Benchmark and the three Show switches; recording controls belong to the full panel. No extra keyboard bindings are installed.
 
 The mod declares API 1.5.0 and uses native DRH 18 contracts through `extends`. New game versions can require adapter updates. Gameplay recordings and a complete controlled run have been exercised by the author on DRH 18. The controlled protocol completed in 57.5 seconds at a 1920 x 1080 viewport. These observations are not a guarantee for every platform, driver or enabled-mod combination.
 
@@ -104,7 +104,7 @@ Run `python tests/run.py --haxe PATH_TO_HAXE` for offline regression fixtures. T
 
 ## Changes in 0.1.24
 
-Two new MODS switches, Show game RAM usage and Show CPU, add those readings next to FPS and ping in the compact display. RAM is the memory the game uses; CPU is its share of the whole processor. They are read once a second inside the game, without the process sampler. A GPU load reading is not available from inside the game, so it is not offered. The compact display now sizes each reading to its value, with even gaps.
+Three new MODS switches, Show CPU, Show GPU VRAM and Show game RAM usage, add those readings to the compact display and the Full Benchmark window: FPS, CPU, GPU VRAM, RAM, Ping. In the full window the optional process sampler's CPU and RAM take precedence, and its GPU load shows as its own card. CPU is the game's share of the whole processor; GPU VRAM is the graphics memory held by the game's textures and buffers; RAM is the memory the game uses. They are read once a second inside the game, without the process sampler. A GPU load reading is not available from inside the game, so it is not offered. The compact display sizes each reading to its value, with even gaps.
 
 ## Review corrections in 0.1.23
 
