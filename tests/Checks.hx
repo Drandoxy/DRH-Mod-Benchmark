@@ -1,7 +1,6 @@
 import mods.benchmark.*;
 
 @:access(mods.benchmark.ModProfiler)
-@:access(mods.benchmark.ModDispatch)
 @:access(mods.benchmark.Hud)
 @:access(mods.benchmark.LiteHud)
 @:access(mods.benchmark.AnimationBench)
@@ -88,6 +87,16 @@ class Checks {
 			logFailed: false
 		};
 		var explanation = Results.describe(sample);
+		sample.modProfilingError = "Per-mod timing unavailable";
+		check(Results.describe(sample).indexOf("Per-mod timing unavailable") >= 0, "missing API timing must be visible in report");
+		var oldWorst = sample.worst;
+		sample.worst = [{at:1000., ms:80., contextAvailable:false, mods:[{name:"Example mod",ms:3.}], groups:[{count:5,key:"enemy:Brute | idle"}]}];
+		var separated = Results.describe(sample);
+		check(separated.indexOf("Animations / actors observed near this frame") > separated.indexOf("Example mod: 3"), "animation context needs its own heading after mod spans");
+		sample.worst[0].mods = [];
+		check(Results.describe(sample).indexOf("Largest observed mod spans") < 0, "empty mod spans should not label animation rows");
+		sample.worst = oldWorst;
+
 		check(explanation.indexOf("409 adapter errors") >= 0 && explanation.indexOf("32 severe slow frames") >= 0,
 			"plain explanation omitted quality or stutters");
 		check(explanation.indexOf("No sampled frames reached") < 0 && explanation.indexOf("Record a longer session") < 0,
@@ -181,55 +190,21 @@ class Checks {
 		snapshot = probe.snapshot(ctx, true);
 		check(snapshot.enemies == 1 && snapshot.groups.length == 2, "actor/symbol census");
 		// Measure an actual priority-ordered dispatch, not a replacement handler.
-		var modsFolder = folder + "/mods";
-		sys.FileSystem.createDirectory(modsFolder);
-		sys.FileSystem.createDirectory(modsFolder + "/data");
-		sys.FileSystem.createDirectory(modsFolder + "/data/benchmark");
-		sys.FileSystem.createDirectory(modsFolder + "/one_mod");
-		sys.FileSystem.createDirectory(modsFolder + "/failed_mod");
-		sys.io.File.saveContent(modsFolder + "/enabled.json", '{"mods":[{"id":"one_mod"},{"id":"failed_mod"}]}');
-		sys.io.File.saveContent(modsFolder + "/one_mod/mod.json", '{"name":"One Mod","version":"1.0.0"}');
-		sys.io.File.saveContent(modsFolder + "/failed_mod/mod.json", '{"name":"Failed Mod","version":"1.0.0"}');
 		var profileCtx = new mods.api.Context();
-		profileCtx.data = modsFolder + "/data/benchmark";
-		profileCtx.activeMods = ["one_mod"];
-		var overlays = new openfl.display.Sprite();
-		overlays.addChild(profileCtx.overlay);
-		var modLayer = new openfl.display.Sprite();
-		modLayer.name = "mod:one_mod";
-		overlays.addChild(modLayer);
+		profileCtx.data = folder + "/missing-layout/data";
 		var profiler = new ModProfiler();
-		var calls = 0;
-		var original = function(_:openfl.events.Event) {
-			calls++;
-			profiler.rows[0].enterStarted -= 0.002;
-		};
-		modLayer.addEventListener(openfl.events.Event.ENTER_FRAME, original);
 		profiler.start(profileCtx);
-		modLayer.dispatchEvent(new openfl.events.Event(openfl.events.Event.ENTER_FRAME));
-		var observed = profiler.report(1000 / 60);
-		check(calls == 1 && observed.length == 2 && observed[0].observedMeanMs >= 2, "mod callback not bracketed by priority");
-		check(observed[0].frameBudgetPercent >= 12
-			&& observed[0].cpuPercent == null
-			&& observed[0].ramMiB == null, "frame budget mislabeled as CPU or RAM");
-		check(observed[1].observedMeanMs == null && !observed[1].activeAtStart, "failed mod assigned zero usage");
+		check(!profiler.enabled && profiler.report(16).length == 0 && profiler.drain().length == 0, "unsupported cross-mod timing must stay unavailable");
+		check(profiler.error.indexOf("unavailable") >= 0, "unsupported timing needs an explanation");
 		profiler.dispose();
-		var oldSamples = profiler.report(1000 / 60)[0].enterSamples;
-		modLayer.dispatchEvent(new openfl.events.Event(openfl.events.Event.ENTER_FRAME));
-		check(calls == 2
-			&& profiler.report(1000 / 60)[0].enterSamples == oldSamples, "profiler changed original handler or leaked observers");
-		profiler.start(profileCtx);
-		modLayer.dispatchEvent(new openfl.events.Event(openfl.events.Event.ENTER_FRAME));
-		check(calls == 3 && profiler.report(1000 / 60)[0].enterSamples == 1, "profiler restart duplicated observers");
-		profiler.dispose();
-		for (id in ["one_mod", "failed_mod"]) {
-			sys.FileSystem.deleteFile(modsFolder + "/" + id + "/mod.json");
-			sys.FileSystem.deleteDirectory(modsFolder + "/" + id);
-		}
-		sys.FileSystem.deleteFile(modsFolder + "/enabled.json");
-		sys.FileSystem.deleteDirectory(modsFolder + "/data/benchmark");
-		sys.FileSystem.deleteDirectory(modsFolder + "/data");
-		sys.FileSystem.deleteDirectory(modsFolder);
+		Faults.reset();
+		var warningLogs = 0;
+		Faults.logger = function(message:String) warningLogs++;
+		Faults.report("layout", "broken JSON");
+		Faults.report("layout", "broken JSON");
+		check(warningLogs == 1 && Faults.snapshot()[0].count == 2, "repeated diagnostics must be counted without log spam");
+		Faults.logger = null;
+
 		var ui = new Hud(function() {}, function() {}, function() {}, folder + "/ui.json");
 		var uiRoot = new openfl.display.Sprite();
 		uiRoot.addChild(ui);
@@ -292,6 +267,12 @@ class Checks {
 		app.init(ctx);
 		app.ready(ctx);
 		check(!app.full.value && app.lite.visible && !app.hud.visible, "lightweight mode was not the default");
+		ctx.keyHandler();
+		app.frame(new openfl.events.Event());
+		check(!app.lite.visible && !app.hud.visible && !app.active, "controls toggle did not persist across frame updates");
+		ctx.keyHandler();
+		check(app.lite.visible, "controls toggle did not restore compact panel");
+
 		app.begin();
 		check(!app.active && app.log == null, "lightweight mode started a recorder");
 		app.frame(new openfl.events.Event());
@@ -317,7 +298,7 @@ class Checks {
 		app.lite.savedY = 9999;
 		app.lite.viewW = 0;
 		app.lite.layout(1280, 720);
-		check(app.lite.x == 1280 - 294 * app.lite.scaleX
+		check(app.lite.x == 1280 - app.lite.panelW * app.lite.scaleX
 			&& app.lite.y == 720 - 52 * app.lite.scaleY, "compact panel cannot reach bottom-right corner");
 		app.focused = false;
 		app.liteSince = haxe.Timer.stamp() * 1000 - 600;
@@ -455,6 +436,31 @@ class Checks {
 		suite.finish("stopped");
 		check(townUI.visible
 			&& capacityLayer.children.length == previousStageChildren, "manual stop failed to restore town or clean render surface");
+		var assetLoader = ctx.core.facade.assetLoadingComponent;
+		assetLoader.failQueue = true;
+		var failureSuite = new AnimationBench(ctx, function(t:String) capacityText = t);
+		failureSuite.start();
+		check(!failureSuite.running && townUI.visible && failureSuite.root == null && capacityText.indexOf("missing asset bundle") >= 0, "synchronous asset failure escaped or left town UI hidden");
+		assetLoader.failQueue = false;
+		assetLoader.missingTexture = true;
+		failureSuite.start();
+		for (_ in 0...(failureSuite.recipes.length + 2)) failureSuite.tick(true);
+		check(!failureSuite.running && townUI.visible && capacityText.indexOf("Scenery texture unavailable") >= 0, "missing scenery did not fail safely");
+		assetLoader.missingTexture = false;
+		failureSuite.start();
+		starling.display.Sprite.failRender = true;
+		failureSuite.root.render(new starling.rendering.Painter());
+		starling.display.Sprite.failRender = false;
+		failureSuite.tick(true);
+		check(!failureSuite.running && townUI.visible && capacityText.indexOf("Animation rendering failed") >= 0, "renderer failure was not contained");
+		assetLoader.defer = true;
+		failureSuite.start();
+		var lateLoad = assetLoader.deferred;
+		failureSuite.finish("stopped");
+		lateLoad();
+		check(!failureSuite.running && failureSuite.root == null && townUI.visible, "late loader callback revived a stopped benchmark");
+		assetLoader.defer = false;
+
 		var stable = new CapacityStore(folder);
 		var good = stable.read();
 		var slot = good.sequence % 2;

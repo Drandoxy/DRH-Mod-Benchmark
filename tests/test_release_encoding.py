@@ -17,7 +17,10 @@ def text_audit(raw, name):
     return text
 
 files = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
+BINARY = (".png",)
 for name in filter(None, files):
+    if name.endswith(BINARY):
+        continue
     text_audit((ROOT / name).read_bytes(), name)
 
 if len(sys.argv) == 3:

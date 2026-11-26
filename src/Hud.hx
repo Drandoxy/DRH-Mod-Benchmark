@@ -264,7 +264,9 @@ class Hud extends Sprite {
 				resultX: resultX,
 				resultY: resultY
 			}))
-		catch (_:Dynamic) {}
+		catch (error:Dynamic) {
+			Faults.report("panel layout save", error);
+		}
 	}
 
 	function loadPosition():Void {
@@ -276,7 +278,9 @@ class Hud extends Sprite {
 			panelY = coordinate(saved.panelY);
 			resultX = coordinate(saved.resultX);
 			resultY = coordinate(saved.resultY);
-		} catch (_:Dynamic) {}
+		} catch (error:Dynamic) {
+			Faults.report("panel layout read", error);
+		}
 	}
 
 	static function coordinate(v:Dynamic):Null<Float>

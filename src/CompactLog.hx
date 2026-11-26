@@ -26,7 +26,7 @@ class CompactLog {
 			type: "session",
 			schema: 1,
 			session: session,
-			version: "0.1.21",
+			version: "0.1.23",
 			startedLocal: Date.now().toString(),
 			utcMs: Date.now().getTime(),
 			attribution: "correlation only; frame intervals are not per-animation CPU/GPU time",
@@ -118,7 +118,9 @@ class CompactLog {
 			if (out != null)
 				try
 					out.close()
-				catch (_:Dynamic) {}
+				catch (error:Dynamic) {
+					Faults.report("log close after write failure", error);
+				}
 			failed = true;
 		}
 		pending = new StringBuf();

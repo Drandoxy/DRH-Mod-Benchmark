@@ -75,12 +75,14 @@ class Results {
 				lines.push("Activity sampled " + spike.contextAgeMs + " ms earlier" + (spike.partial ? " (partial scan)." : "."));
 			} else
 				lines.push("Animation/enemy context was unavailable; the frame drop itself was still measured.");
-			if (spike.mods != null) {
+			if (spike.mods != null && spike.mods.length > 0) {
 				lines.push("Largest observed mod spans in the preceding frame interval:");
 				for (mod in (cast spike.mods : Array<Dynamic>))
 					lines.push("  " + mod.name + ": " + mod.ms + " ms");
 			}
-			var groups:Array<Dynamic> = spike.groups;
+			var groups:Array<Dynamic> = spike.groups == null ? [] : spike.groups;
+			if (groups.length > 0)
+				lines.push("Animations / actors observed near this frame (not mod timings):");
 			for (i in 0...Std.int(Math.min(3, groups.length)))
 				lines.push("  " + groups[i].count + " x " + groups[i].key);
 		}
@@ -97,7 +99,9 @@ class Results {
 				+ row.frames + " slow frames; up to " + row.maxInstances + " instances.");
 		}
 		lines.push("");
-		if (report.mods != null) {
+		if (report.modProfilingError != null && (report.mods == null || report.mods.length == 0))
+			lines.push(Std.string(report.modProfilingError));
+		if (report.mods != null && report.mods.length > 0) {
 			lines.push("PER-MOD OBSERVED FRAME WORK");
 			lines.push("ENTER_FRAME + EXIT_FRAME dispatch spans on each mod's overlay. Includes event-dispatch/probe overhead; excludes API callbacks, timers, stage listeners, network handlers and rendering elsewhere. This is wall time, not CPU time.");
 			lines.push("Frame-budget share is an average time allowance used, NOT percent FPS lost. A 108 ms span is about a tenth-second delay on that occasion, not a constant cost.");
@@ -132,6 +136,9 @@ class Results {
 		lines.push("Timing alignment: mod spans are collected between Benchmark frame callbacks; event ordering can place work near an interval boundary. These are coincident observations, not proof of FPS caused or recoverable by disabling a mod.\nLIMITS: no GPU fence timing, function profiler or per-animation memory ownership. Actor and symbol rows overlap. Shared atlas dimensions are not per-animation RAM. Other mods, loading, GC and OS scheduling can cause the same drops.");
 		lines.push("Unavailable process metrics are hidden. Native heartbeat latency may include local scheduling delays.");
 		lines.push("Frame percentiles cover the entire recording with 1 ms histogram resolution.");
+		if (report.warnings != null)
+			for (warning in (cast report.warnings : Array<Dynamic>))
+				lines.push("Warning: " + warning.operation + " (" + warning.count + " occurrences): " + warning.message);
 		if (report.adapterFaults != null)
 			for (fault in (cast report.adapterFaults : Array<Dynamic>))
 				lines.push("Adapter " + fault.stage + ": " + fault.message + " (" + fault.count + " failures)");

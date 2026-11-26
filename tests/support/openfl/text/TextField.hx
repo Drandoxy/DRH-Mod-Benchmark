@@ -8,6 +8,7 @@ class TextField extends openfl.display.DisplayObjectContainer {
 	public var multiline = false;
 	public var textColor:Int;
 	public var text = "";
+	public var textWidth = 40.0;
 	public var defaultTextFormat:TextFormat;
 	public var selectable = false;
 	public var mouseEnabled = true;

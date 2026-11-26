@@ -14,17 +14,17 @@ for module in ['Session.hx','CompactLog.hx','NativeProbe.hx']:
 main_source = (root / 'src/Main.hx').read_text()
 assert 'root.mask = clip' in (root / 'src/AnimationBench.hx').read_text(), 'Surface clipping removed'
 assert '1152' not in (root / 'src/AnimationBench.hx').read_text(), 'Forced effect enlargement reintroduced'
-assert main_source.count('ctx.settings.flag(') == 1 and 'ctx.settings.button(' not in main_source, 'Extra settings controls reintroduced'
+assert main_source.count('ctx.settings.flag(') == 3 and 'ctx.settings.button(' not in main_source, 'Extra settings controls reintroduced'
 assert 'openfl.system.System.totalMemory' not in (root / 'src/Main.hx').read_text(), 'Unsupported V18 static binding reintroduced'
 stubs = {
     'starling/StatusTintFilter.hx':'package starling;class StatusTintFilter {public function new(){}public function set(c:UInt,a:Float){}public function get_matrix():Dynamic{return null;}}',
     'starling/textures/Texture.hx':'package starling.textures;class Texture {public function new(){}}',
     'starling/display/Image.hx':'package starling.display;class Image extends DisplayObject {public var width=0.;public var height=0.;public function new(t:starling.textures.Texture){super();}}',
 
-    'starling/rendering/Painter.hx':'package starling.rendering;class Painter {public function new(){}}',
-    'starling/display/Sprite.hx':'package starling.display;class Sprite extends DisplayObjectContainer {public var touchable=true;public function new(){super();}public function dispose(){}public function setRequiresRedraw(){}public function render(painter:starling.rendering.Painter):Void{} }',
+    'starling/rendering/Painter.hx':'package starling.rendering;class Painter {public var drawCount=5;public function new(){}}',
+    'starling/display/Sprite.hx':'package starling.display;class Sprite extends DisplayObjectContainer {public static var failRender=false;public var touchable=true;public function new(){super();}public function dispose(){}public function setRequiresRedraw(){}public function render(painter:starling.rendering.Painter):Void{if(failRender)throw "missing render texture";} }',
     'starling/display/Quad.hx':'package starling.display;class Quad extends DisplayObject {public function new(w:Float,h:Float,c:Int){super();}}',
-    'brain/assetRepository/AssetLoadingComponent.hx':'''package brain.assetRepository;class AssetLoadingComponent {public function new(){}public function queueStarlingAssetsForPath(path:String,done:Void->Void){done();}public function queueStarlingAssets(key:String,done:Void->Void){done();}public function getTextureFromAssetManager(name:String,key:String):starling.textures.Texture{return new starling.textures.Texture();}public function createAnimationFromAssetManager(name:String):starling.extensions.animate.Animation{return new starling.extensions.animate.Animation();}}''',
+    'brain/assetRepository/AssetLoadingComponent.hx':'''package brain.assetRepository;class AssetLoadingComponent {public var failQueue=false;public var missingTexture=false;public var missingSymbol="";public var defer=false;public var deferred:Void->Void;public function new(){}public function queueStarlingAssetsForPath(path:String,done:Void->Void){if(failQueue)throw "missing asset bundle";if(defer)deferred=done;else done();}public function queueStarlingAssets(key:String,done:Void->Void){done();}public function getTextureFromAssetManager(name:String,key:String):starling.textures.Texture{if(missingTexture)return null;return new starling.textures.Texture();}public function createAnimationFromAssetManager(name:String):starling.extensions.animate.Animation{if(name==missingSymbol)return null;return new starling.extensions.animate.Animation();}}''',
 
     'facade/DBFacade.hx':'package facade;class DBFacade {public var sceneGraphManager:Dynamic;public var assetLoadingComponent:brain.assetRepository.AssetLoadingComponent;public var gameObjectManager:Dynamic;public var dbAccountInfo:Dynamic;public var starlingLayerManager:Dynamic;public var mainStateMachine:Dynamic;public function new(){}}',
     'mods/api/dungeon/Floor.hx':'package mods.api.dungeon;typedef Floor=mods.api.Context.Floor;',
@@ -35,8 +35,9 @@ stubs = {
     'mods/api/Context.hx': '''package mods.api;
 class Context {
 public var data:String;public var viewWidth=1280.;public var viewHeight=720.;public var overlay=new openfl.display.Sprite();
-public var core:Dynamic;public var settings:Dynamic;public var state:{inTown:Bool,floor:Null<Floor>,heroes:Array<mods.api.dungeon.Hero>};
-public function new(){settings={flag:function(a:String,b:String,c:String,d:Bool){return new mods.api.settings.Flag(d);},button:function(a:String,b:String,c:String){return {onPress:function(f:Void->Void){return new Subscription();}};}};}
+public var keyHandler:Void->Void;public var keys:Dynamic;public var core:Dynamic;public var settings:Dynamic;public var state:{inTown:Bool,floor:Null<Floor>,heroes:Array<mods.api.dungeon.Hero>};
+public function new(){keys={action:function(id:String,label:String,description:String,key:Int){return {onPress:function(f:Void->Void){keyHandler=f;return new Subscription();}};}};settings={flag:function(a:String,b:String,c:String,d:Bool){return new mods.api.settings.Flag(d);},button:function(a:String,b:String,c:String){return {onPress:function(f:Void->Void){return new Subscription();}};}};}
+public function log(message:String):Void{}
 public var activeMods:Array<String>=[];public function isActive(id:String):Bool{return activeMods.indexOf(id)>=0;}
 public function onFloorEnter(f:Dynamic->Void):Subscription{return new Subscription();}
 public function onFloorExit(f:Dynamic->Void):Subscription{return new Subscription();}
@@ -44,13 +45,14 @@ public function onTownEnter(f:Void->Void):Subscription{return new Subscription()
 public function onTownExit(f:Void->Void):Subscription{return new Subscription();}
 }
 typedef Floor={id:Int,number:Int,map:String,monsters:Array<mods.api.dungeon.Monster>};''',
+    'openfl/ui/Keyboard.hx':'package openfl.ui;class Keyboard {public static inline var F7=118;}',
     'openfl/system/System.hx':'package openfl.system;class System {public static var copied="";public static function setClipboard(s:String){copied=s;}}',
     'flash/system/System.hx':'package flash.system;class System {public static var copied="";public static function setClipboard(s:String){copied=s;}}',
     'starling/events/Event.hx': 'package starling.events;class Event {public function new(){}}',
     'starling/display/DisplayObject.hx': '''package starling.display;class DisplayObject {public var mask:DisplayObject;public var filter:Dynamic;public var parent:DisplayObjectContainer;public var visible=true;public var alpha=1.;public var name:String;public function get_filter():Dynamic{return filter;}public function new(){}}''',
     'starling/display/DisplayObjectContainer.hx': '''package starling.display;class DisplayObjectContainer extends DisplayObject {public var children:Array<DisplayObject>=[];public var numChildren(get,never):Int;public function get_numChildren(){return children.length;}public function new(){super();}public function getChildAt(i:Int):DisplayObject{return children[i];}public function addChild(c:DisplayObject){children.push(c);c.parent=this;}}''',
     'starling/extensions/animate/Animation.hx': '''package starling.extensions.animate;class Animation extends starling.display.DisplayObjectContainer {public var numFrames=12;public var deepestFrames=24;public var frameRate=30.;public var sourceWidth=512.;public var sourceHeight=512.;public var symbolName="spark";public var currentLabel="loop";public var isPlaying=true;public var composing=true;public function new(){super();}}''',
-    'starling/core/Starling.hx': '''package starling.core;class Starling {public var stage=new starling.display.DisplayObjectContainer();public function get_stage():starling.display.DisplayObjectContainer{return stage;}public var painter_instance={drawCount:5};public var listeners=0;public function new(){}public function addEventListener(n:String,f:starling.events.Event->Void){listeners++;}public function removeEventListener(n:String,f:starling.events.Event->Void){listeners--;}}''',
+    'starling/core/Starling.hx': '''package starling.core;class Starling {public var stage=new starling.display.DisplayObjectContainer();public function get_stage():starling.display.DisplayObjectContainer{return stage;}public static var current:Starling=null;public var painter_instance=new starling.rendering.Painter();public var listeners=0;public function new(){}public function addEventListener(n:String,f:starling.events.Event->Void){listeners++;}public function removeEventListener(n:String,f:starling.events.Event->Void){listeners--;}}''',
     'actor/ActorGameObject.hx': '''package actor;class ActorGameObject {public var actorView:ActorView;public function get_actorView():ActorView{return actorView;}public function new(){actorView=new ActorView();}}''',
     'actor/ActorView.hx': '''package actor;class ActorView {public var bodyAnimRenderer:ActorRenderer;public function get_bodyAnimRenderer():ActorRenderer{return bodyAnimRenderer;}public function new(){bodyAnimRenderer=new ActorRenderer();}}''',
     'actor/ActorRenderer.hx': '''package actor;class ActorRenderer {public var currentAnimName="attack";public function get_currentAnimName():String{return currentAnimName;}public var rendererType="StarlingActorRenderer";public var isCulled=false;public function new(){}}''',

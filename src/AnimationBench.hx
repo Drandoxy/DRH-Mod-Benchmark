@@ -74,6 +74,18 @@ class AnimationBench {
 	}
 
 	public function start():Void {
+		try
+			startUnsafe()
+		catch (error:Dynamic) {
+			Faults.report("animation benchmark startup", error);
+			if (running)
+				finish("ERROR: missing or incompatible game asset/interface: " + Std.string(error));
+			else
+				showResult("Animation benchmark could not start: " + Std.string(error));
+		}
+	}
+
+	function startUnsafe():Void {
 		if (running)
 			return;
 		if (!ctx.state.inTown) {
@@ -81,7 +93,11 @@ class AnimationBench {
 			return;
 		}
 		var facade:DBFacade = ctx.core.facade;
-		if (facade == null || facade.assetLoadingComponent == null || facade.starlingLayerManager == null) {
+		if (facade == null
+			|| facade.assetLoadingComponent == null
+			|| facade.starlingLayerManager == null
+			|| facade.starlingLayerManager.starlingInstance == null
+			|| facade.sceneGraphManager == null) {
 			done("Animation renderer is not ready. Try again after town loads.");
 			return;
 		}
@@ -99,7 +115,7 @@ class AnimationBench {
 		available = [for (_ in recipes) false];
 		document = {
 			protocol: 6,
-			modVersion: "0.1.21",
+			modVersion: "0.1.23",
 			sequence: 0,
 			status: "running",
 			stage: "starting",
@@ -109,7 +125,8 @@ class AnimationBench {
 			rounds: [],
 			loadMs: 0
 		};
-		document.mods = enabledMods();
+		document.mods = null;
+		document.modEnvironment = "Enabled-mod enumeration unavailable through the public API; record the enabled set manually for comparisons.";
 		document.heroes = selectedHeroes;
 		document.scenery = {
 			biome: "castle_arena",
@@ -142,26 +159,6 @@ class AnimationBench {
 		loadAt = previousTick = clock();
 		pendingBackground = false;
 		nextLoad();
-	}
-
-	function enabledMods():Array<Dynamic> {
-		var list:Array<Dynamic> = [];
-		try {
-			var base = haxe.io.Path.normalize(ctx.data + "/../..");
-			var config:Dynamic = haxe.Json.parse(sys.io.File.getContent(base + "/enabled.json"));
-			for (row in (cast config.mods : Array<Dynamic>)) {
-				if (list.length >= 128)
-					break;
-				var id:String = row.id;
-				if (id == null || !~/^[a-z][a-z0-9_]+$/.match(id))
-					continue;
-				try {
-					var manifest:Dynamic = haxe.Json.parse(sys.io.File.getContent(base + "/" + id + "/mod.json"));
-					list.push({id: id, version: manifest.version, active: ctx.isActive(id)});
-				} catch (_:Dynamic) {}
-			}
-		} catch (_:Dynamic) {}
-		return list;
 	}
 
 	static function clock():Float
@@ -282,11 +279,17 @@ class AnimationBench {
 						probe.gotoLabel(recipes[which].label, true);
 					recipes[which].bounds = AnimationSizing.measure(probe);
 				}
-			} catch (_:Dynamic) {
+			} catch (error:Dynamic) {
 				available[which] = false;
+				Faults.report("animation asset probe " + recipes[which].name, error);
 			}
 			if (probe != null)
-				probe.dispose();
+				try
+					probe.dispose()
+				catch (error:Dynamic) {
+					available[which] = false;
+					Faults.report("animation probe cleanup", error);
+				}
 			phase = "loaded"; // Continue on the next tick, outside native loader dispatch.
 		});
 	}
@@ -319,8 +322,11 @@ class AnimationBench {
 				failure = e;
 			}
 		}
-		if (failure != null && checkpoint)
-			throw failure;
+		if (failure != null) {
+			Faults.report("animation instance cleanup", failure);
+			if (checkpoint)
+				throw failure;
+		}
 	}
 
 	function nextRound():Void {
@@ -367,11 +373,11 @@ class AnimationBench {
 		};
 		store.save(document);
 		var a = loader.createAnimationFromAssetManager(asset.symbol);
-		if (a == null || (asset.label != null && a.getFrame(asset.label) < 0)) {
-			if (a != null)
-				a.dispose();
+		if (a == null)
 			throw "Required animation disappeared: " + asset.symbol;
-		}
+		instances.push(a);
+		if (asset.label != null && a.getFrame(asset.label) < 0)
+			throw "Required animation label disappeared: " + asset.symbol + " / " + asset.label;
 		if (asset.label != null)
 			a.gotoLabel(asset.label, true);
 		a.play();
@@ -383,7 +389,6 @@ class AnimationBench {
 			else
 				AnimationSizing.fit(a, asset.pixels, asset.bounds);
 		} catch (e:Dynamic) {
-			a.dispose();
 			throw e;
 		}
 		var groupSize = r.kind == -2 ? 4 : (r.kind == -3 || r.kind == -4) ? 2 : 1;
@@ -420,7 +425,6 @@ class AnimationBench {
 		}
 
 		root.addChild(a);
-		instances.push(a);
 	}
 
 	public function focusChanged(focused:Bool):Void {
@@ -438,6 +442,10 @@ class AnimationBench {
 			phaseAt += Math.max(0, now - previousTick - 250);
 		previousTick = now;
 		try {
+			if (root == null)
+				throw "Animation surface unavailable";
+			if (root.failure != null)
+				throw root.failure;
 			root.setRequiresRedraw();
 			if (now - startedAt >= CapacityPlan.MAX_MS) {
 				if (phase == "measuring" && frames != null && frames.frames > 0)
@@ -459,7 +467,7 @@ class AnimationBench {
 				return;
 			}
 			if (now >= nextUI) {
-				caption.text = "v0.1.21 | "
+				caption.text = "v0.1.23 | "
 					+ document.stage
 					+ " | "
 					+ Math.max(0, Math.ceil((CapacityPlan.MAX_MS - (now - startedAt)) / 1000))
@@ -494,6 +502,7 @@ class AnimationBench {
 			if (phase == "loading") {
 				if (now - phaseAt > 20000) {
 					available[loading] = false;
+					Faults.report("animation load timeout", recipes[loading].name);
 					phase = "loaded";
 				}
 				return;
@@ -632,41 +641,63 @@ class AnimationBench {
 		store.save(document);
 	}
 
+	function cleanup(operation:String, action:Void->Void):Void {
+		try
+			action()
+		catch (error:Dynamic) {
+			Faults.report(operation, error);
+		}
+	}
+
+	function showResult(text:String):Void {
+		cleanup("benchmark results display", function() done(text));
+	}
+
 	public function finish(status:String):Void {
 		if (!running || finished)
 			return;
 		finished = true;
 		running = false;
-		generation++;
+		generation++; // Invalidate late asynchronous loader callbacks before cleanup.
 		document.status = status;
 		document.seconds = FrameWindow.round((clock() - startedAt) / 1000);
 		document.surfaceDraws = root == null ? 0 : root.draws;
 		if (coveredUI != null) {
-			coveredUI.visible = uiWasVisible;
+			cleanup("restore town interface", function() coveredUI.visible = uiWasVisible);
 			coveredUI = null;
 		}
-		try {
-			clear(false);
-			if (scene != null) {
-				scene.dispose();
-				scene = null;
-			}
-			if (root != null) {
+		cleanup("animation instances cleanup", function() clear(false));
+		if (scene != null)
+			cleanup("baseline scene cleanup", function() scene.dispose());
+		scene = null;
+		if (root != null) {
+			cleanup("animation surface detach", function() {
 				if (root.parent != null)
 					root.parent.removeChild(root);
-				root.dispose();
-			}
-		} catch (_:Dynamic) {}
-		if (popup != null && popup.parent != null)
-			popup.parent.removeChild(popup);
+			});
+			cleanup("animation surface cleanup", function() root.dispose());
+		}
+		if (popup != null)
+			cleanup("benchmark popup detach", function() {
+				if (popup.parent != null)
+					popup.parent.removeChild(popup);
+			});
 		popup = null;
 		root = null;
+		document.warnings = Faults.snapshot();
 		try
 			store.save(document)
-		catch (_:Dynamic) {
+		catch (error:Dynamic) {
 			document.status += "; checkpoint save failed";
+			Faults.report("animation final checkpoint", error);
 		}
-		done(CapacityStore.describe(document));
+		var text = "Animation benchmark stopped: " + document.status + ". See diagnostic warnings if cleanup was incomplete.";
+		try
+			text = CapacityStore.describe(document)
+		catch (error:Dynamic) {
+			Faults.report("animation results formatting", error);
+		}
+		showResult(text);
 	}
 
 	public function dispose():Void {

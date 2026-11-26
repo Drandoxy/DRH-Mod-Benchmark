@@ -8,11 +8,16 @@ import starling.events.Event as RenderEvent;
 
 class Main extends mods.api.Mod {
 	var ctx:Context;
+	var shown = true;
 	var hud:Hud;
 	var lite:LiteHud;
 	var capacity:AnimationBench;
 	var full:Flag;
 	var liteFrames = 0;
+	var stats:SystemStats;
+	var showRam:Flag;
+	var showCpu:Flag;
+	var nextStats = 0.0;
 	var liteSince = 0.0;
 	var probe = new NativeProbe();
 	var session:Session;
@@ -51,7 +56,21 @@ class Main extends mods.api.Mod {
 
 	override public function init(context:Context):Void {
 		ctx = context;
+		Faults.reset();
+		Faults.logger = function(message:String) ctx.log(message);
+		subs.push(ctx.keys.action("toggleHud", "Show / hide Benchmark", "Show or hide the FPS/ping and recording panel without stopping a recording.",
+			openfl.ui.Keyboard.F7)
+			.onPress(function() {
+				shown = !shown;
+				if (hud != null)
+					hud.visible = shown && full.value;
+				if (lite != null)
+					lite.visible = shown && !full.value;
+			}));
 		full = ctx.settings.flag("fullBenchmark", "Full Benchmark", "On: full recording. Off: live FPS and ping.", false);
+		showRam = ctx.settings.flag("showRam", "Show game RAM usage", "Shows the game's memory use next to FPS and ping.", false);
+		showCpu = ctx.settings.flag("showCpu", "Show CPU", "Shows the game's share of your whole CPU next to FPS and ping.", false);
+		stats = new SystemStats();
 		// Scene boundaries are API events. They are not inferred from native map internals.
 		subs.push(ctx.onFloorEnter(function(_) boundary("floor-enter")));
 		subs.push(ctx.onFloorExit(function(_) boundary("floor-exit")));
@@ -61,7 +80,7 @@ class Main extends mods.api.Mod {
 
 	override public function ready(context:Context):Void {
 		capacity = new AnimationBench(ctx, function(text:String) {
-			hud.visible = full.value;
+			hud.visible = shown && full.value;
 			hud.report(text);
 			hud.layout(ctx.viewWidth, ctx.viewHeight);
 		});
@@ -72,8 +91,8 @@ class Main extends mods.api.Mod {
 		ctx.overlay.addChild(hud);
 		lite = new LiteHud(ctx.data + "/lite-ui.json");
 		ctx.overlay.addChild(lite);
-		hud.visible = full.value;
-		lite.visible = !full.value;
+		hud.visible = shown && full.value;
+		lite.visible = shown && !full.value;
 		liteSince = haxe.Timer.stamp() * 1000;
 		ctx.overlay.addEventListener(Event.ENTER_FRAME, frame);
 		if (ctx.overlay.stage != null) {
@@ -83,6 +102,7 @@ class Main extends mods.api.Mod {
 		hud.update(false, 0, "N/A|N/A|N/A|N/A|N/A");
 		if (capacity.interrupted()) {
 			full.value = true;
+			shown = true;
 			hud.visible = true;
 			lite.visible = false;
 			hud.report(capacity.saved());
@@ -148,7 +168,9 @@ class Main extends mods.api.Mod {
 				output: ctx.data + "/process.json",
 				started: Date.now().getTime()
 			}));
-		} catch (_:Dynamic) {}
+		} catch (error:Dynamic) {
+			Faults.report("process sampler session save", error);
+		}
 		try {
 			probe.connect(ctx);
 			if (probe.renderer != null)
@@ -193,8 +215,8 @@ class Main extends mods.api.Mod {
 	function sampleFrame(event:Event):Void {
 		if (hud == null)
 			return;
-		hud.visible = full.value;
-		lite.visible = !full.value;
+		hud.visible = shown && full.value;
+		lite.visible = shown && !full.value;
 		if (capacity != null && capacity.running) {
 			if (!full.value)
 				capacity.finish("stopped: Full Benchmark disabled");
@@ -272,9 +294,30 @@ class Main extends mods.api.Mod {
 		ownMs = haxe.Timer.stamp() * 1000 - entered;
 	}
 
+	/** RAM, CPU and GPU lines for the compact display: read once a second, and only those switched on. */
+	function updateStats(now:Float):Void {
+		if (!showRam.value && !showCpu.value) {
+			lite.setStats(null, null);
+			stats.resetCpu();
+			return;
+		}
+		if (now < nextStats)
+			return;
+		nextStats = now + 1000;
+		try {
+			if (!showCpu.value)
+				stats.resetCpu();
+			lite.setStats(showRam.value ? stats.ram() : null, showCpu.value ? stats.cpu() : null);
+		} catch (error:Dynamic) {
+			Faults.report("compact system readings", error);
+		}
+	}
+
 	function updateIdle(compact:Bool):Void {
 		liteFrames++;
 		var now = haxe.Timer.stamp() * 1000;
+		if (compact)
+			updateStats(now);
 		if (now - liteSince < 500)
 			return;
 		var ping:Dynamic = null;
@@ -282,7 +325,9 @@ class Main extends mods.api.Mod {
 			var facade = ctx.core.facade;
 			if (facade != null && facade.dbAccountInfo != null)
 				ping = facade.dbAccountInfo.SocketPingMilsecs;
-		} catch (_:Dynamic) {}
+		} catch (error:Dynamic) {
+			Faults.report("compact heartbeat read", error);
+		}
 		var current = liteFrames * 1000 / (now - liteSince);
 		if (compact)
 			lite.update(current, ping);
@@ -406,7 +451,7 @@ class Main extends mods.api.Mod {
 		}
 		var report:Dynamic = {
 			schema: 1,
-			version: "0.1.21",
+			version: "0.1.23",
 			session: log.session,
 			seconds: elapsed,
 			frame: f,
@@ -422,7 +467,8 @@ class Main extends mods.api.Mod {
 			adapterFaults: probe.faults,
 			maxScanMs: session.maxProbeMs,
 			logFailed: log.failed,
-			recordingFaults: recordingFaults
+			recordingFaults: recordingFaults,
+			warnings: Faults.snapshot()
 		};
 		try
 			report.associations = session.ranked()
@@ -440,7 +486,12 @@ class Main extends mods.api.Mod {
 		} catch (error:Dynamic)
 			recordingFault("resource summary", error);
 		try {
-			log.write({type: "stop", seconds: elapsed, recordingFaults: recordingFaults});
+			log.write({
+				type: "stop",
+				seconds: elapsed,
+				recordingFaults: recordingFaults,
+				warnings: Faults.snapshot()
+			});
 			log.flush();
 		} catch (error:Dynamic)
 			recordingFault("log finalization", error);
@@ -469,7 +520,9 @@ class Main extends mods.api.Mod {
 		if (recordingFaults.length > 0)
 			try
 				sys.io.File.saveContent(ctx.data + "/recording-errors.json", haxe.Json.stringify(recordingFaults))
-			catch (_:Dynamic) {}
+			catch (error:Dynamic) {
+				Faults.report("recording error report save", error);
+			}
 		finalizing = false;
 		try {
 			hud.setStatus(saved ? "Stopped - results saved" : "Stopped - report save failed");
@@ -561,5 +614,6 @@ class Main extends mods.api.Mod {
 		if (hud != null && hud.parent != null)
 			hud.parent.removeChild(hud);
 		hud = null;
+		Faults.logger = null;
 	}
 }

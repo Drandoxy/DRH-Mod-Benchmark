@@ -3,26 +3,31 @@
 Live FPS and ping, gameplay recordings and controlled animation tests for Dungeon Rampage Haxe.
 
 <!-- drh:show -->
-A small, movable FPS and ping display works in town, loading screens and dungeons. Drag the panel to move it or its bottom-right corner to resize it. It can sit against the screen edges. FPS is green and ping is amber; unavailable values show a dash. The game or OS can throttle rendering when unfocused.
+A small, movable FPS and ping display works in town, loading screens and dungeons. Drag the panel to move it or its bottom-right corner to resize it. It can sit against the screen edges. FPS is green and ping is amber; unavailable values show a dash. Press F7 to show or hide the panel without stopping a recording. Rebind Show / hide Benchmark under Settings > CONTROLS > Benchmark. The game or OS can throttle rendering when unfocused.
+
+**Show game RAM usage and Show CPU** (Settings > Mods > Benchmark, off by default) add the game's memory use and its share of your whole CPU next to FPS and ping, updated once a second at almost no cost. A GPU load reading is not possible from inside the game.
 
 **Full Benchmark is off by default.** Enable it in Settings > Mods > Benchmark for recording controls and detailed results. With it off, the display does not record performance history, scan animations or profile mods. It only counts frame callbacks, reads the existing heartbeat and refreshes text twice per second. Position and size are saved after adjustment.
 
-**Record normal gameplay:** press Start, play, then press Stop. Stop saves local logs and opens a movable, scrollable results window with a readable summary. Details shows timings, scene context, sampled animations and observed mod callback spans. Copy exports the full text. Results reopens the last gameplay recording.
+**Record normal gameplay:** press Start, play, then press Stop. Stop saves local logs and opens a movable, scrollable results window with a readable summary. Details shows timings, scene context, sampled animations and diagnostic warnings. Copy exports the full text. Results reopens the last gameplay recording.
 
 **Test animations:** in town, choose Start full benchmark and confirm the warning. Heavy scenes can freeze or crash the game. Completed rounds are saved automatically. The test uses the game's room artwork, four heroes, dragon breath, Battleheim Lion Fury and native ultimate/explosion effects. Six scenes compare 16 copies of each effect. Mixed scenes increase the load. Twelve rounds aim to finish within one minute; loading and preparation count toward the limit and can leave partial results.
 
 Each round is saved locally. After an interrupted test, recovered results open on restart. Last full result reopens the saved animation report. The checkpoint identifies the last attempted operation or active animation set, not a proven crash cause. The test continues unfocused while frame callbacks run; background conditions can affect comparisons. Leaving town or changing the viewport stops it. The town interface is temporarily hidden and restored afterward.
 
-Animation results show FPS for each scene and rank matched effect tests. Near-cap ties do not prove an effect has no cost. These are visual tests, without enemy AI, physics or server combat. Gameplay animation correlations are clues, not proven causes. Mod timings cover observed overlay event dispatch only, not total mod CPU/GPU or memory usage.
+Animation results show FPS for each scene and rank matched effect tests. Near-cap ties do not prove an effect has no cost. These are visual tests, without enemy AI, physics or server combat. Gameplay animation correlations are clues, not proven causes. Cross-mod timings are unavailable because the public API has no supported mod discovery or timing interface. Benchmark does not infer the mods directory or inspect named overlay layers.
 
 CPU, GPU and process RAM are optional Windows-only readings from the supplied manual process sampler. Unsupported metrics are hidden. It measures only the selected game process and is never started automatically. Benchmark also works without it.
 
-Logs stay in the mod's local data folder; nothing is uploaded automatically. They include enabled mod names, IDs and versions, so review before sharing. Disabling Full Benchmark stops and saves an active gameplay recording. This mod measures performance; it does not improve FPS or provide a graphics preset.
+Logs stay in the mod's local data folder; nothing is uploaded automatically. Older reports can include enabled mod names, IDs and versions, so review before sharing. New reports mark enabled-mod enumeration unavailable; note your enabled set manually when comparing runs. Disabling Full Benchmark stops and saves an active gameplay recording. This mod measures performance; it does not improve FPS or provide a graphics preset.
+Missing or incompatible game assets stop the controlled test or skip the affected round with an error instead of escaping into normal gameplay. Native crashes and driver failures cannot be guaranteed recoverable.
 <!-- /drh:show -->
+
+![Compact display with FPS, ping, RAM and CPU](docs/compact-panel.png)
 
 ## Installation and controls
 
-Install the release through the DRH Launcher, enable Benchmark and restart the game. Keep API enabled. The default compact display appears near the top center. Move it away from native HUD elements if needed. Full Benchmark is the only MODS setting; recording controls belong to the full panel. No extra keyboard bindings are installed.
+Install the release through the DRH Launcher, enable Benchmark and restart the game. Keep API enabled. The default compact display appears near the top center. Move it away from native HUD elements if needed. MODS settings: Full Benchmark and the two Show switches; recording controls belong to the full panel. No extra keyboard bindings are installed.
 
 The mod declares API 1.5.0 and uses native DRH 18 contracts through `extends`. New game versions can require adapter updates. Gameplay recordings and a complete controlled run have been exercised by the author on DRH 18. The controlled protocol completed in 57.5 seconds at a 1920 x 1080 viewport. These observations are not a guarantee for every platform, driver or enabled-mod combination.
 
@@ -43,7 +48,7 @@ All files are under the launcher's persistent `mods/data/benchmark` folder for t
 - `attach.json` and optional `process.json`: manual process-sampler session data.
 - `recording-errors.json`: recording failures when present.
 
-Only an explicitly started recording or controlled test writes diagnostic measurements. Compact mode may save layout changes and read previous recovery state. It does not collect a performance history. The mod does not collect chat, tokens or server addresses. Enabled-mod names and native asset identifiers remain visible in reports.
+Only an explicitly started recording or controlled test writes diagnostic measurements. Compact mode may save layout changes and read previous recovery state. It does not collect a performance history. The mod does not collect chat, tokens or server addresses. Native asset identifiers remain visible in reports. Reports from older versions can also contain enabled-mod names.
 
 ## Controlled protocol 6
 
@@ -74,7 +79,7 @@ Actual native surface traversals must occur for a round to qualify. Saved operat
 - Normal recording snapshots are bounded and sampled, so brief animations can be missed. Actor and symbol rows can overlap. Reports include sample age, partial scans, exclusions and adapter errors.
 - Normal recording excludes unfocused, suspended and profiler-heavy intervals from diagnostic attribution. Controlled tests can continue unfocused and mark background intervals; the OS can still suspend callbacks.
 - Ping reads the existing server heartbeat without sending new requests. It can include local scheduling delay and may be unavailable during loading.
-- Per-mod observations time ENTER_FRAME/EXIT_FRAME dispatch on each available overlay. They include dispatch/probe overhead and exclude timers, API callbacks, unrelated stage handlers, asynchronous work and rendering elsewhere. Frame-budget share is not CPU percentage or FPS loss. Unsupported attribution remains unknown.
+- Cross-mod enumeration and timing are unavailable through API 1.5.0. New recordings do not inspect enabled.json, infer the mods folder from the data path, or locate overlays by internal names. Older saved reports retain their historical observations, which remain incomplete wall-time samples, not CPU percentages or FPS loss.
 
 ## Optional Windows process sampler
 
@@ -96,3 +101,15 @@ Mod code is GPL-3.0; see LICENSE. Lucide outlines use the ISC license in `Resour
 - [Mod development and publishing rules](https://github.com/Tutez64/Dungeon-Rampage-Haxe/blob/master/docs/making-a-mod.md)
 
 Run `python tests/run.py --haxe PATH_TO_HAXE` for offline regression fixtures. These use doubles and do not establish native compilation or GPU performance. The official release workflow packs the mod and matching launcher JSON. Source and release audits check UTF-8 text, decoded JSON, file contents and package checksums.
+
+## Changes in 0.1.24
+
+Two new MODS switches, Show game RAM usage and Show CPU, add those readings next to FPS and ping in the compact display. RAM is the memory the game uses; CPU is its share of the whole processor. They are read once a second inside the game, without the process sampler. A GPU load reading is not available from inside the game, so it is not offered. The compact display now sizes each reading to its value, with even gaps.
+
+## Review corrections in 0.1.23
+
+Animation context has a separate heading from historical mod spans. Caught layout, checkpoint, cleanup and session-file errors produce bounded game-log warnings, with repeat counts in new gameplay reports. Missing optional files on first use are normal. F7 toggles the panel through the public CONTROLS API without changing recording state. Unsupported cross-mod probing has been removed.
+
+## Asset and interface safeguards
+
+Missing textures, animation symbols, labels or required renderer interfaces produce an error or an explicitly skipped round. Load timeouts are bounded. Startup, update, loader-probe and render failures stop only the controlled test; partial instances are cleaned independently and the prior town UI visibility is restored. Late callbacks cannot restart a stopped test. These guards handle detectable Haxe errors; they cannot guarantee recovery from native crashes, GPU/driver faults or every incompatible game update.

@@ -61,11 +61,11 @@ class BaselineScene {
 		if (texture == null)
 			throw "Scenery texture unavailable: " + name;
 		var image = new Image(texture);
+		group.addChild(image);
 		image.x = x;
 		image.y = y;
 		image.width = w;
 		image.height = h;
-		group.addChild(image);
 	}
 
 	public function reset():Void {
@@ -92,13 +92,35 @@ class BaselineScene {
 	}
 
 	public function dispose():Void {
-		if (group != null) {
-			if (group.parent != null)
-				group.parent.removeChild(group);
-			group.dispose();
-			group = null;
+		// Some heroes may not have been attached when construction failed.
+		for (hero in heroes) {
+			try {
+				if (hero.parent != null)
+					hero.parent.removeChild(hero);
+			} catch (error:Dynamic) {
+				Faults.report("baseline hero detach", error);
+			}
+			try
+				hero.dispose()
+			catch (error:Dynamic) {
+				Faults.report("baseline hero cleanup", error);
+			}
 		}
 		heroes = [];
+		if (group != null) {
+			try {
+				if (group.parent != null)
+					group.parent.removeChild(group);
+			} catch (error:Dynamic) {
+				Faults.report("baseline scenery detach", error);
+			}
+			try
+				group.dispose()
+			catch (error:Dynamic) {
+				Faults.report("baseline scenery cleanup", error);
+			}
+			group = null;
+		}
 		scales = [];
 		labels = [];
 	}

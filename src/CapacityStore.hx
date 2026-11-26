@@ -26,14 +26,19 @@ class CapacityStore {
 		var newest:Dynamic = null;
 		for (i in 0...2)
 			try {
-				var d:Dynamic = haxe.Json.parse(sys.io.File.getContent(path + "/capacity-" + i + ".json"));
+				var file = path + "/capacity-" + i + ".json";
+				if (!sys.FileSystem.exists(file))
+					continue;
+				var d:Dynamic = haxe.Json.parse(sys.io.File.getContent(file));
 				if ((d.protocol == 1 || d.protocol == 2 || d.protocol == 3 || d.protocol == 4 || d.protocol == 5 || d.protocol == 6)
 					&& Std.isOfType(d.sequence, Int)
 					&& d.sequence >= 0
 					&& Std.isOfType(d.rounds, Array)
 					&& (newest == null || d.sequence > newest.sequence))
 					newest = d;
-			} catch (_:Dynamic) {}
+			} catch (error:Dynamic) {
+				Faults.report("checkpoint read", error);
+			}
 		return newest;
 	}
 
@@ -137,6 +142,8 @@ class CapacityStore {
 			lines.push("This is the last durable checkpoint, not a proven crash cause. Mixed rounds identify the active set, not a single culprit.");
 			lines.push("");
 		}
+		if (d.modEnvironment != null)
+			lines.push(Std.string(d.modEnvironment));
 		if (d.mods != null) {
 			lines.push("Enabled-mod environment:");
 			for (mod in (cast d.mods : Array<Dynamic>))

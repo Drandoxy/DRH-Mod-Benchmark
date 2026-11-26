@@ -1,8 +1,8 @@
 {
   "id": "benchmark",
   "name": "Benchmark",
-  "description": "Live FPS and ping with optional gameplay recording and controlled animation tests.",
-  "version": "0.1.21",
+  "description": "Live FPS and ping, optional RAM and CPU readings, optional gameplay recording and controlled animation tests.",
+  "version": "0.1.24",
   "author": "Drandox",
   "api": "1.5.0",
   "drh": "18",
