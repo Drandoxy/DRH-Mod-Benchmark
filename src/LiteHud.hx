@@ -19,7 +19,7 @@ class LiteHud extends Sprite {
 
 	var fpsText:TextField;
 	var pingText:TextField;
-	/** Optional CPU, GPU VRAM and RAM readings, each an icon, a name and a value, between FPS and ping. */
+	/** Optional CPU, texture memory and heap readings, each an icon, a name and a value, between FPS and ping. */
 	var ramGroup:Sprite;
 	var ramText:TextField;
 	var cpuGroup:Sprite;
@@ -40,7 +40,9 @@ class LiteHud extends Sprite {
 	var dy = 0.0;
 	var savedX:Null<Float>;
 	var savedY:Null<Float>;
-	var size = 0.55;
+	var size = 1.0;
+	/** Called with the new spot after the player moves the panel, so the full panel can open at the same place. */
+	public var onMoved:Float->Float->Void;
 	var viewW = 0.0;
 	var viewH = 0.0;
 	var lastW = 0.0;
@@ -67,11 +69,11 @@ class LiteHud extends Sprite {
 		pingGroup = new Sprite();
 		pingText = group(pingGroup, "network", "Ping", 0xEBC77D);
 		ramGroup = new Sprite();
-		ramText = group(ramGroup, "memory-stick", "RAM", 0xB9A6F2);
+		ramText = group(ramGroup, "memory-stick", "Heap\n(RAM)", 0xB9A6F2);
 		cpuGroup = new Sprite();
 		cpuText = group(cpuGroup, "cpu", "CPU", 0x7FC1F0);
 		vramGroup = new Sprite();
-		vramText = group(vramGroup, "monitor", "VRAM", 0xF0A3C0);
+		vramText = group(vramGroup, "monitor", "Textures\n(VRAM)", 0xF0A3C0);
 		addChild(fpsGroup);
 		addChild(pingGroup);
 		arrange(false, false, false);
@@ -95,10 +97,15 @@ class LiteHud extends Sprite {
 		addEventListener(MouseEvent.MOUSE_DOWN, function(e:MouseEvent) begin(e, false));
 	}
 
-	/** One reading: icon, name and value side by side. */
+	/** One reading: icon, name and value side by side. A name with a line break goes on two smaller lines. */
 	function group(owner:Sprite, icon:String, name:String, color:Int):TextField {
 		Icons.draw(owner, icon, 0, 17, 18);
-		var title = label(owner, name, 18 + INNER, 15, 60, 0xA4B7C8);
+		var twoLines = name.indexOf("\n") >= 0;
+		var title = label(owner, name, 18 + INNER, twoLines ? 10 : 15, 80, 0xA4B7C8, twoLines ? 11 : 14);
+		if (twoLines) {
+			title.multiline = true;
+			title.height = 34;
+		}
 		title.width = title.textWidth + 4;
 		var value = label(owner, "--", title.x + title.width + INNER - 2, 11, 120, color, 21);
 		values.set(owner, value);
@@ -118,7 +125,7 @@ class LiteHud extends Sprite {
 		layout(lastW, lastH);
 	}
 
-	/** Left to right: FPS, CPU, GPU VRAM, RAM, Ping. */
+	/** Left to right: FPS, CPU, Textures (VRAM), Heap (RAM), Ping. */
 	function order():Array<Sprite> {
 		return [fpsGroup, cpuGroup, vramGroup, ramGroup, pingGroup];
 	}
@@ -187,7 +194,7 @@ class LiteHud extends Sprite {
 		rearrange();
 	}
 
-	/** CPU, GPU VRAM and RAM values between FPS and ping; null hides that reading. The panel widens to fit them. */
+	/** CPU, texture memory and heap values between FPS and ping; null hides that reading. The panel widens to fit them. */
 	public function setStats(ram:Null<String>, cpu:Null<String>, vram:Null<String>):Void {
 		if (ram != null && ramText.text != ram)
 			ramText.text = ram;
@@ -216,8 +223,10 @@ class LiteHud extends Sprite {
 		viewW = w;
 		viewH = h;
 		scaleX = scaleY = Math.min(size, Math.max(0.2, Math.min(w / panelW, h / PANEL_H)));
-		x = bound(savedX == null ? (w - panelW * scaleX) / 2 : savedX, 0, w - panelW * scaleX);
-		y = bound(savedY == null ? 12 : savedY, 0, h - PANEL_H * scaleY);
+		// Default spot: the left edge, a third of the way down. Top centre, the old default, covered the gold and gem
+		// counters once the CPU, texture and heap readings widened the panel. Dragging it saves the player's own spot.
+		x = bound(savedX == null ? 12 : savedX, 0, w - panelW * scaleX);
+		y = bound(savedY == null ? h * 0.3 : savedY, 0, h - PANEL_H * scaleY);
 	}
 
 	function begin(e:MouseEvent, resize:Bool):Void {
@@ -263,6 +272,21 @@ class LiteHud extends Sprite {
 		dragStage = null;
 		savedX = x;
 		savedY = y;
+		save();
+		if (onMoved != null)
+			onMoved(savedX, savedY);
+	}
+
+	/** Puts the panel's top-left corner at this spot (the full panel was moved there) and saves it. */
+	public function moveTo(px:Float, py:Float):Void {
+		savedX = px;
+		savedY = py;
+		save();
+		viewW = -1;
+		layout(lastW, lastH);
+	}
+
+	function save():Void {
 		try
 			sys.io.File.saveContent(path, haxe.Json.stringify({
 				x: savedX,

@@ -13,9 +13,13 @@ class Hud extends Sprite {
 	static inline final PANEL_W = 330;
 	static inline final RESULT_W = 560;
 	static inline final RESULT_H = 570;
+	/** The results window's size: tall enough for every scene's FPS at once; the bottom-right corner resizes it. */
+	static inline final MIN_RESULT_W = 380;
+	static inline final MIN_RESULT_H = 240;
 
 	var cards:Array<Sprite> = [];
 	var metrics:Array<TextField> = [];
+	var titles:Array<TextField> = [];
 	var timer:TextField;
 	var status:TextField;
 	var startButton:Sprite;
@@ -40,6 +44,20 @@ class Hud extends Sprite {
 	var dragResult = false;
 	var dragDX = 0.;
 	var dragDY = 0.;
+	var resultW = 600.;
+	var resultH = 860.;
+	var resizing = false;
+	var resizeStartX = 0.;
+	var resizeStartY = 0.;
+	var resizeW = 0.;
+	var resizeH = 0.;
+	var scrollLine = 1;
+	/** The panel's size chosen with its corner grip (1 = normal); it is still shrunk to fit a small window. */
+	var panelSize = 1.0;
+	var panelGrip:Sprite;
+	var panelResizing = false;
+	/** Called with the new spot after the player moves the panel, so the compact display opens at the same place. */
+	public var onMoved:Float->Float->Void;
 
 	public function new(onStart:Void->Void, onStop:Void->Void, onReport:Void->Void, path:String, ?onCapacity:Void->Void, ?onCapacityReport:Void->Void) {
 		super();
@@ -64,11 +82,28 @@ class Hud extends Sprite {
 			card.graphics.drawRoundRect(0, 0, 146, 65, 6, 6);
 			card.graphics.endFill();
 			Icons.draw(card, ["activity", "cpu", "monitor", "monitor", "memory-stick", "network"][i], 12, 11, 16);
-			text(card, ["FPS", "CPU", "GPU", "GPU VRAM", "RAM", "Ping"][i], 35, 8, 99, 23, 12, 0x91AABC);
+			titles.push(text(card, ["FPS", "CPU", "GPU", "Textures (VRAM)", "Heap (RAM)", "Ping"][i], 35, 8, 108, 23, 12, 0x91AABC));
 			metrics.push(text(card, "--", 11, 30, 126, 29, 19, [0x72D5B1, 0x87BFFF, 0xC4A3EB, 0xF0A3C0, 0xF0AA86, 0xEBC77D][i]));
 		}
 		status = text(this, "Ready to record", 14, 175, 302, 23, 12, 0x94ABBB);
+		panelGrip = new Sprite();
+		panelGrip.buttonMode = true;
+		panelGrip.graphics.beginFill(0x000000, 0);
+		panelGrip.graphics.drawRect(0, 0, 22, 22);
+		panelGrip.graphics.endFill();
+		panelGrip.graphics.lineStyle(2, 0x6E8BA0);
+		for (k in 0...3) {
+			panelGrip.graphics.moveTo(20, 6 + k * 5);
+			panelGrip.graphics.lineTo(6 + k * 5, 20);
+		}
+		panelGrip.addEventListener(MouseEvent.MOUSE_DOWN, beginPanelResize);
 		update(false, 0, "N/A|N/A|N/A|N/A|N/A|N/A");
+	}
+
+	/** The memory card's name: the process sampler's figure is the whole process, the in-game one the Haxe heap. */
+	public function setMemoryTitle(processSampler:Bool):Void {
+		if (titles.length > 4)
+			titles[4].text = processSampler ? "Process RAM" : "Heap (RAM)";
 	}
 
 	public function update(active:Bool, seconds:Int, values:String):Void {
@@ -100,6 +135,14 @@ class Hud extends Sprite {
 		if (values.indexOf("Stopped.") == 0)
 			status.text = "Saved locally - open Results to review";
 		panelHeight = status.y + 34;
+		if (panelGrip != null) {
+			panelGrip.x = PANEL_W - 22;
+			panelGrip.y = panelHeight - 22;
+			// Above the cards, but under an open popup.
+			addChild(panelGrip);
+			if (popup != null && popup.parent == this)
+				addChild(popup);
+		}
 		graphics.clear();
 		graphics.beginFill(0x182430, 0.98);
 		graphics.lineStyle(1, 0x354B5B);
@@ -114,13 +157,14 @@ class Hud extends Sprite {
 	public function layout(width:Float, height:Float):Void {
 		viewW = width;
 		viewH = height;
-		scaleX = scaleY = Math.min(1, Math.max(0.2, Math.min((width - 16) / PANEL_W, (height - 16) / panelHeight)));
+		scaleX = scaleY = Math.min(panelSize, Math.max(0.2, Math.min((width - 16) / PANEL_W, (height - 16) / panelHeight)));
 		x = clamp(panelX == null ? (width - PANEL_W * scaleX) / 2 : panelX, 8, width - PANEL_W * scaleX - 8);
 		y = clamp(panelY == null ? Math.min(105, height * 0.085) : panelY, 8, height - panelHeight * scaleY - 8);
 		if (popup != null) {
-			var size = Math.min(1, Math.min((width - 16) / RESULT_W, (height - 16) / popupHeight));
+			var popupW = popupWidth();
+			var size = Math.min(1, Math.min((width - 16) / popupW, (height - 16) / popupHeight));
 			popup.scaleX = popup.scaleY = size / scaleX;
-			var px = clamp(resultX == null ? (width - RESULT_W * size) / 2 : resultX, 8, width - RESULT_W * size - 8);
+			var px = clamp(resultX == null ? (width - popupW * size) / 2 : resultX, 8, width - popupW * size - 8);
 			var py = clamp(resultY == null ? (height - popupHeight * size) / 2 : resultY, 8, height - popupHeight * size - 8);
 			popup.x = (px - x) / scaleX;
 			popup.y = (py - y) / scaleY;
@@ -128,41 +172,133 @@ class Hud extends Sprite {
 	}
 
 	public function report(value:String):Void {
+		var keepDetails = popup != null && content == value ? showDetails : false;
 		closeReport();
-		popupHeight = RESULT_H;
 		content = value;
+		showDetails = keepDetails;
+		buildReport();
+	}
+
+	/** The open window's width: the results window can be resized, the other popups keep the fixed width. */
+	function popupWidth():Float {
+		return scroll != null ? resultW : RESULT_W;
+	}
+
+	function buildReport():Void {
+		popupHeight = resultH;
 		popup = new Sprite();
 		addChild(popup);
 		popup.graphics.beginFill(0x182430, 1);
 		popup.graphics.lineStyle(1, 0x3E5669);
-		popup.graphics.drawRoundRect(0, 0, RESULT_W, RESULT_H, 8, 8);
+		popup.graphics.drawRoundRect(0, 0, resultW, resultH, 8, 8);
 		popup.graphics.endFill();
-		var bar = header(popup, "Benchmark results", "file", RESULT_W);
+		var bar = header(popup, "Benchmark results", "file", resultW);
 		bar.addEventListener(MouseEvent.MOUSE_DOWN, function(e:MouseEvent) beginDrag(e, true));
-		var copy = button(popup, "Copy", "copy", 390, 5, 112, copyResults);
+		var copy = button(popup, "Copy", "copy", resultW - 170, 5, 112, copyResults);
 		copyLabel = cast copy.getChildAt(copy.numChildren - 1);
-		button(popup, "", "x", 510, 5, 36, closeReport);
-		var guide = text(popup,
-			"How to read: higher FPS is better; lower frame time and ping are better. P95/P99 reveal stutters. Animation matches are clues, not proven causes.",
-			16, 60, 528, 56, 12, 0xA5BDCD);
-		guide.multiline = true;
-		guide.wordWrap = true;
-		showDetails = false;
-		var detailButton = button(popup, "Details", "file", 16, 94, 110, toggleDetails);
+		button(popup, "", "x", resultW - 50, 5, 36, closeReport);
+		var detailButton = button(popup, showDetails ? "Summary" : "Details", "file", 16, 54, 110, toggleDetails);
 		detailLabel = cast detailButton.getChildAt(detailButton.numChildren - 1);
-		text(popup, "Green: overview   Amber: slow frames   Blue: sections", 140, 101, 402, 22, 11, 0xA5BDCD);
-		scroll = text(popup, "", 16, 142, 528, 384, 14, 0xD2DEE8);
+		text(popup, "Higher FPS is better. Green: smooth  Amber: moderate  Red: heavy", 136, 62, resultW - 152, 22, 11, 0xA5BDCD);
+		scroll = text(popup, "", 16, 98, resultW - 32, resultH - 128, 14, 0xD2DEE8);
 		scroll.multiline = true;
-		ReportMarkup.apply(scroll, content, false);
+		ReportMarkup.apply(scroll, content, showDetails);
 		scroll.wordWrap = true;
 		scroll.multiline = true;
 		scroll.selectable = true;
 		scroll.mouseEnabled = true;
+		scroll.scrollV = scrollLine;
 		scroll.addEventListener(MouseEvent.MOUSE_WHEEL, function(e:MouseEvent) {
 			scroll.scrollV -= e.delta;
+			scrollLine = scroll.scrollV;
 			e.stopPropagation();
 		});
-		text(popup, "Drag the title to move. Scroll to read. Copy exports the full report.", 16, 542, 528, 21, 11, 0x90A8B9);
+		text(popup, "Drag the title to move, the corner to resize. Copy exports the full report.", 16, resultH - 26, resultW - 60, 21, 11, 0x90A8B9);
+		// Resize grip: three diagonal lines in the bottom-right corner.
+		var grip = new Sprite();
+		popup.addChild(grip);
+		grip.x = resultW - 22;
+		grip.y = resultH - 22;
+		grip.buttonMode = true;
+		grip.graphics.beginFill(0x000000, 0);
+		grip.graphics.drawRect(0, 0, 22, 22);
+		grip.graphics.endFill();
+		grip.graphics.lineStyle(2, 0x6E8BA0);
+		for (k in 0...3) {
+			grip.graphics.moveTo(20, 6 + k * 5);
+			grip.graphics.lineTo(6 + k * 5, 20);
+		}
+		grip.addEventListener(MouseEvent.MOUSE_DOWN, beginResize);
+		layout(viewW, viewH);
+	}
+
+	/** The panel's own corner grip: drag to make the whole panel bigger or smaller. */
+	function beginPanelResize(e:MouseEvent):Void {
+		endDrag(null);
+		if (stage == null || parent == null)
+			return;
+		panelResizing = true;
+		dragStage = stage;
+		dragStage.addEventListener(MouseEvent.MOUSE_MOVE, movePanelResize);
+		dragStage.addEventListener(MouseEvent.MOUSE_UP, endDrag, true);
+		dragStage.addEventListener(Event.DEACTIVATE, endDrag);
+		dragStage.addEventListener(Event.MOUSE_LEAVE, endDrag);
+		e.stopPropagation();
+	}
+
+	function movePanelResize(e:MouseEvent):Void {
+		if (!e.buttonDown || parent == null) {
+			endDrag(e);
+			return;
+		}
+		var at = parent.globalToLocal(new Point(e.stageX, e.stageY));
+		panelSize = clamp(Math.max((at.x - x) / PANEL_W, (at.y - y) / panelHeight), 0.4, 2.5);
+		layout(viewW, viewH);
+	}
+
+	function beginResize(e:MouseEvent):Void {
+		endDrag(null);
+		if (stage == null)
+			return;
+		resizing = true;
+		resizeStartX = e.stageX;
+		resizeStartY = e.stageY;
+		resizeW = resultW;
+		resizeH = resultH;
+		dragStage = stage;
+		dragStage.addEventListener(MouseEvent.MOUSE_MOVE, moveResize);
+		dragStage.addEventListener(MouseEvent.MOUSE_UP, endDrag, true);
+		dragStage.addEventListener(Event.DEACTIVATE, endDrag);
+		dragStage.addEventListener(Event.MOUSE_LEAVE, endDrag);
+		e.stopPropagation();
+	}
+
+	function moveResize(e:MouseEvent):Void {
+		if (!e.buttonDown || popup == null) {
+			endDrag(e);
+			return;
+		}
+		// Mouse movement in screen pixels, turned into the window's own units (it may be scaled to fit).
+		var scale = popup.scaleX * scaleX;
+		if (scale <= 0)
+			scale = 1;
+		var w = Math.round(Math.max(MIN_RESULT_W, Math.min(1600, resizeW + (e.stageX - resizeStartX) / scale)));
+		var h = Math.round(Math.max(MIN_RESULT_H, Math.min(1400, resizeH + (e.stageY - resizeStartY) / scale)));
+		if (w == resultW && h == resultH)
+			return;
+		resultW = w;
+		resultH = h;
+		if (scroll != null)
+			scrollLine = scroll.scrollV;
+		var keepX = resultX;
+		var keepY = resultY;
+		if (popup.parent != null)
+			popup.parent.removeChild(popup);
+		popup = null;
+		scroll = null;
+		buildReport();
+		resultX = keepX;
+		resultY = keepY;
 		layout(viewW, viewH);
 	}
 
@@ -196,6 +332,7 @@ class Hud extends Sprite {
 		detailLabel.text = showDetails ? "Summary" : "Details";
 		ReportMarkup.apply(scroll, content, showDetails);
 		scroll.scrollV = 1;
+		scrollLine = 1;
 	}
 
 	function copyResults():Void {
@@ -214,6 +351,7 @@ class Hud extends Sprite {
 		popup = null;
 		scroll = null;
 		copyLabel = null;
+		scrollLine = 1;
 	}
 
 	function beginDrag(e:MouseEvent, result:Bool):Void {
@@ -254,16 +392,38 @@ class Hud extends Sprite {
 		if (dragStage == null)
 			return;
 		dragStage.removeEventListener(MouseEvent.MOUSE_MOVE, moveDrag);
+		dragStage.removeEventListener(MouseEvent.MOUSE_MOVE, moveResize);
+		dragStage.removeEventListener(MouseEvent.MOUSE_MOVE, movePanelResize);
+		var moved = !dragResult && !resizing && !panelResizing;
+		resizing = false;
+		panelResizing = false;
 		dragStage.removeEventListener(MouseEvent.MOUSE_UP, endDrag, true);
 		dragStage.removeEventListener(Event.DEACTIVATE, endDrag);
 		dragStage.removeEventListener(Event.MOUSE_LEAVE, endDrag);
 		dragStage = null;
+		save();
+		if (moved && onMoved != null && panelX != null && panelY != null)
+			onMoved(panelX, panelY);
+	}
+
+	/** Puts the panel's top-left corner at this spot (the compact display was moved there) and saves it. */
+	public function moveTo(px:Float, py:Float):Void {
+		panelX = px;
+		panelY = py;
+		save();
+		layout(viewW, viewH);
+	}
+
+	function save():Void {
 		try
 			sys.io.File.saveContent(positionPath, haxe.Json.stringify({
 				panelX: panelX,
 				panelY: panelY,
+				panelSize: panelSize,
 				resultX: resultX,
-				resultY: resultY
+				resultY: resultY,
+				resultW: resultW,
+				resultH: resultH
 			}))
 		catch (error:Dynamic) {
 			Faults.report("panel layout save", error);
@@ -277,8 +437,17 @@ class Hud extends Sprite {
 			var saved:Dynamic = haxe.Json.parse(sys.io.File.getContent(positionPath));
 			panelX = coordinate(saved.panelX);
 			panelY = coordinate(saved.panelY);
+			var size = coordinate(saved.panelSize);
+			if (size != null)
+				panelSize = clamp(size, 0.4, 2.5);
 			resultX = coordinate(saved.resultX);
 			resultY = coordinate(saved.resultY);
+			var w = coordinate(saved.resultW);
+			var h = coordinate(saved.resultH);
+			if (w != null)
+				resultW = Math.max(MIN_RESULT_W, Math.min(1600, w));
+			if (h != null)
+				resultH = Math.max(MIN_RESULT_H, Math.min(1400, h));
 		} catch (error:Dynamic) {
 			Faults.report("panel layout read", error);
 		}

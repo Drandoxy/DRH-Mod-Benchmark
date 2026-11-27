@@ -65,12 +65,10 @@ class CapacityStore {
 			}
 			if (row.count == 0)
 				base = row.frame;
-			var count = row.count == 0 ? "4 heroes + room" : row.count + " added animations";
+			// One line per scene, so every result fits on one screen; scene sizes and timings are under Details.
 			var label = row.frame.fps >= 100 ? "Smooth" : row.frame.fps >= 60 ? "Moderate load" : row.frame.fps >= 30 ? "Heavy load" : "Very heavy load";
-			lines.push(row.name + " - " + row.frame.fps + " FPS | " + label);
-			var extra = base != null
-				&& row.count > 0 ? " | " + FrameWindow.round(Math.max(0, base.fps - row.frame.fps)) + " FPS below baseline" : "";
-			lines.push("  " + count + extra + (row.status == "complete" ? "" : " | " + row.status));
+			var below = base != null && row.count > 0 ? " | -" + FrameWindow.round(Math.max(0, base.fps - row.frame.fps)) + " vs baseline" : "";
+			lines.push(row.name + " - " + row.frame.fps + " FPS | " + label + below + (row.status == "complete" ? "" : " | " + row.status));
 			if (row.count > 0 && row.status == "complete" && (slowest == null || row.frame.fps < slowest.frame.fps))
 				slowest = row;
 		}
@@ -87,18 +85,11 @@ class CapacityStore {
 			for (row in isolated)
 				lines.push(row.name.substr(10) + " - " + row.frame.fps + " FPS with 16 copies");
 			if (isolated.length == 6 && base != null && base.fps - isolated[0].frame.fps >= 3)
-				lines.push("First candidate to simplify: "
-					+ isolated[0].name.substr(10) + ". Repeat to confirm; this is a scene comparison, not exact effect CPU/GPU time.");
-			else
-				lines.push("No clear individual candidate yet. Frame-cap ties, missing stages or small differences do not prove an effect is free.");
-			lines.push("Compare repeated runs on the same PC, viewport, foreground/background state and enabled mods. Keep visible attack warnings when reducing decorative effects.");
+				lines.push("First candidate to simplify: " + isolated[0].name.substr(10) + " (repeat to confirm).");
 			lines.push("");
 		}
-		lines.push("WHAT THIS MEANS");
 		if (slowest != null)
-			lines.push("Heaviest completed scene: " + slowest.name + " at " + slowest.frame.fps + " FPS.");
-		lines.push("Higher FPS is better. These numbers describe the complete scene, not FPS consumed by one animation. Mixed stages cannot identify a single culprit.");
-		lines.push("Details contains individual asset names, frame timings, background intervals and crash checkpoints. Copy exports both views.");
+			lines.push("Heaviest scene: " + slowest.name + " at " + slowest.frame.fps + " FPS. Higher is better; Details has timings and asset names.");
 		return lines.join("\n");
 	}
 

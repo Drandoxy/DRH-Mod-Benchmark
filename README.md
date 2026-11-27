@@ -5,9 +5,9 @@ Live FPS and ping, gameplay recordings and controlled animation tests for Dungeo
 <!-- drh:show -->
 A small, movable FPS and ping display works in town, loading screens and dungeons. Drag the panel to move it or its bottom-right corner to resize it. It can sit against the screen edges. FPS is green and ping is amber; unavailable values show a dash. Press F7 to show or hide the panel without stopping a recording. Rebind Show / hide Benchmark under Settings > CONTROLS > Benchmark. The game or OS can throttle rendering when unfocused.
 
-**Show CPU, Show GPU VRAM and Show game RAM usage** (Settings > Mods > Benchmark, off by default) add those readings to the compact display and the Full Benchmark window, in the order FPS, CPU, GPU VRAM, RAM, Ping. CPU is the game's share of your whole processor, GPU VRAM the graphics memory the game uses, RAM the memory the game uses. They update once a second at almost no cost. A GPU load reading is not possible from inside the game.
+**Show CPU, Show texture memory (VRAM) and Show Haxe heap (RAM)** (Settings > Mods > Benchmark, off by default) add those readings to the compact display and the Full Benchmark window, in the order FPS, CPU, Textures (VRAM), Heap (RAM), Ping. CPU is the game's share of your whole processor (where the thread count is unknown, the number of cores the game uses). Textures is the graphics memory the game's renderer allocated, by its own count: not the game's whole VRAM use, which is often far more. Heap is the Haxe heap, the memory of the game's code: about half of what Task Manager shows for the game. They update once a second at almost no cost.
 
-**Full Benchmark is off by default.** Enable it in Settings > Mods > Benchmark for recording controls and detailed results. With it off, the display does not record performance history, scan animations or profile mods. It only counts frame callbacks, reads the existing heartbeat and refreshes text twice per second. Position and size are saved after adjustment.
+**Full Benchmark is off by default.** Enable it in Settings > Mods > Benchmark for recording controls and detailed results. With it off, the display does not record performance history, scan animations or profile mods. It only counts frame callbacks, reads the existing heartbeat and refreshes text twice per second. The full panel resizes from its corner too; both panels open at the same spot and each keeps its own size.
 
 **Record normal gameplay:** press Start, play, then press Stop. Stop saves local logs and opens a movable, scrollable results window with a readable summary. Details shows timings, scene context, sampled animations and diagnostic warnings. Copy exports the full text. Results reopens the last gameplay recording.
 
@@ -15,7 +15,7 @@ A small, movable FPS and ping display works in town, loading screens and dungeon
 
 Each round is saved locally. After an interrupted test, recovered results open on restart. Last full result reopens the saved animation report. The checkpoint identifies the last attempted operation or active animation set, not a proven crash cause. The test continues unfocused while frame callbacks run; background conditions can affect comparisons. Leaving town or changing the viewport stops it. The town interface is temporarily hidden and restored afterward.
 
-Animation results show FPS for each scene and rank matched effect tests. Near-cap ties do not prove an effect has no cost. These are visual tests, without enemy AI, physics or server combat. Gameplay animation correlations are clues, not proven causes. Cross-mod timings are unavailable because the public API has no supported mod discovery or timing interface. Benchmark does not infer the mods directory or inspect named overlay layers.
+Animation results show FPS for each scene and rank matched effect tests. Near-cap ties do not prove an effect has no cost. These are visual tests, without enemy AI, physics or server combat. Gameplay animation correlations are clues, not proven causes.
 
 CPU, GPU and process RAM are optional Windows-only readings from the supplied manual process sampler. Unsupported metrics are hidden. It measures only the selected game process and is never started automatically. Benchmark also works without it.
 
@@ -23,7 +23,7 @@ Logs stay in the mod's local data folder; nothing is uploaded automatically. Old
 Missing or incompatible game assets stop the controlled test or skip the affected round with an error instead of escaping into normal gameplay. Native crashes and driver failures cannot be guaranteed recoverable.
 <!-- /drh:show -->
 
-![Compact display with FPS, CPU, GPU VRAM, RAM and Ping](docs/compact-panel.png)
+![Compact display with FPS, CPU, texture memory, heap and Ping](docs/compact-panel.png)
 
 ## Installation and controls
 
@@ -101,6 +101,10 @@ Mod code is GPL-3.0; see LICENSE. Lucide outlines use the ISC license in `Resour
 - [Mod development and publishing rules](https://github.com/Tutez64/Dungeon-Rampage-Haxe/blob/master/docs/making-a-mod.md)
 
 Run `python tests/run.py --haxe PATH_TO_HAXE` for offline regression fixtures. These use doubles and do not establish native compilation or GPU performance. The official release workflow packs the mod and matching launcher JSON. Source and release audits check UTF-8 text, decoded JSON, file contents and package checksums.
+
+## Changes in 0.1.27
+
+The readings are named for what they measure: GPU VRAM is now Textures (VRAM) (the renderer's own count of what it allocated, not the game's whole VRAM use) and RAM is now Heap (RAM) (the Haxe heap, about half of what the process holds). CPU reads the thread count from /proc/cpuinfo on Linux; where it is unknown it shows the cores the game uses instead of a clamped 100%. Reports and captions carry the current version. The compact display's default spot no longer covers the gold and gem counters. The Full Benchmark panel can be resized from its bottom-right corner like the compact display, and both open at the same spot: moving one moves the other (each keeps its own size). The compact display starts at normal size instead of about half.
 
 ## Changes in 0.1.24
 

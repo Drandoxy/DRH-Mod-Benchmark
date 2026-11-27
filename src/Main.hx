@@ -15,6 +15,9 @@ class Main extends mods.api.Mod {
 	var full:Flag;
 	var liteFrames = 0;
 	var stats:SystemStats;
+	/** The mod version written into reports and captions; keep it equal to mod.json. */
+	public static inline final VERSION = "0.1.27";
+
 	var showRam:Flag;
 	var showCpu:Flag;
 	var showVram:Flag;
@@ -72,9 +75,9 @@ class Main extends mods.api.Mod {
 					lite.visible = shown && !full.value;
 			}));
 		full = ctx.settings.flag("fullBenchmark", "Full Benchmark", "On: full recording. Off: live FPS and ping.", false);
-		showCpu = ctx.settings.flag("showCpu", "Show CPU", "Shows the game's share of your whole CPU next to FPS.", false);
-		showVram = ctx.settings.flag("showVram", "Show GPU VRAM", "Shows the graphics memory the game uses next to FPS.", false);
-		showRam = ctx.settings.flag("showRam", "Show game RAM usage", "Shows the game's memory use next to FPS.", false);
+		showCpu = ctx.settings.flag("showCpu", "Show CPU", "Shows the game's share of your whole CPU next to FPS (where the PC's thread count is unknown: the number of cores the game uses).", false);
+		showVram = ctx.settings.flag("showVram", "Show texture memory (VRAM)", "Shows the graphics memory the game's renderer allocated for textures and buffers, by its own count, next to FPS. Not the game's whole VRAM use as Task Manager or the driver counts it, which is often far more.", false);
+		showRam = ctx.settings.flag("showRam", "Show Haxe heap (RAM)", "Shows the Haxe heap next to FPS: the memory of the game's code, about half of what Task Manager shows for the game, garbage not yet collected included.", false);
 		stats = new SystemStats();
 		// Scene boundaries are API events. They are not inferred from native map internals.
 		subs.push(ctx.onFloorEnter(function(_) boundary("floor-enter")));
@@ -95,6 +98,9 @@ class Main extends mods.api.Mod {
 		});
 		ctx.overlay.addChild(hud);
 		lite = new LiteHud(ctx.data + "/lite-ui.json");
+		// Both panels open at the same spot: moving one moves the other's saved place too (each keeps its own size).
+		hud.onMoved = function(px:Float, py:Float) lite.moveTo(px, py);
+		lite.onMoved = function(px:Float, py:Float) hud.moveTo(px, py);
 		ctx.overlay.addChild(lite);
 		hud.visible = shown && full.value;
 		lite.visible = shown && !full.value;
@@ -307,7 +313,7 @@ class Main extends mods.api.Mod {
 	}
 
 	/**
-	 * In-game CPU, GPU VRAM and RAM readings, refreshed once a second for the switches that are on (a switch turned
+	 * In-game CPU, texture memory (VRAM) and Haxe heap (RAM) readings, refreshed once a second for the switches that are on (a switch turned
 	 * off clears its reading at once). Both the compact display and the full window show them.
 	 */
 	function refreshStats(now:Float):Void {
@@ -337,13 +343,17 @@ class Main extends mods.api.Mod {
 	}
 
 	/**
-	 * The full window's cards, in display order: FPS, CPU, GPU load, GPU VRAM, RAM, Ping. CPU and RAM come from the
-	 * optional process sampler when it runs, else from the in-game readings that are switched on; GPU load only
-	 * exists with the sampler. Unavailable cards are hidden.
+	 * The full window's cards, in display order: FPS, CPU, GPU load, Textures (VRAM), Heap (RAM), Ping. CPU and the
+	 * memory card come from the optional process sampler when it runs (then the memory card is named Process RAM: the
+	 * whole process), else from the in-game readings that are switched on; GPU load only exists with the sampler.
+	 * Unavailable cards are hidden.
 	 */
 	function fullCells(fps:Float, ping:Dynamic, process:Dynamic):String {
 		var cpu = process != null && process.cpu != null ? metric(process.cpu, "%") : statCpu;
-		var ram = process != null && process.ram != null ? memory(process.ram) : statRam;
+		var processRam = process != null && process.ram != null;
+		var ram = processRam ? memory(process.ram) : statRam;
+		if (hud != null)
+			hud.setMemoryTitle(processRam);
 		return [
 			Std.string(FrameWindow.round(fps)),
 			cpu == null ? "N/A" : cpu,
@@ -493,7 +503,7 @@ class Main extends mods.api.Mod {
 		}
 		var report:Dynamic = {
 			schema: 1,
-			version: "0.1.23",
+			version: Main.VERSION,
 			session: log.session,
 			seconds: elapsed,
 			frame: f,

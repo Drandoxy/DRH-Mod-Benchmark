@@ -26,7 +26,7 @@ class CompactLog {
 			type: "session",
 			schema: 1,
 			session: session,
-			version: "0.1.23",
+			version: Main.VERSION,
 			startedLocal: Date.now().toString(),
 			utcMs: Date.now().getTime(),
 			attribution: "correlation only; frame intervals are not per-animation CPU/GPU time",

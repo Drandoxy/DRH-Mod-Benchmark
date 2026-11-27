@@ -115,7 +115,7 @@ class AnimationBench {
 		available = [for (_ in recipes) false];
 		document = {
 			protocol: 6,
-			modVersion: "0.1.23",
+			modVersion: Main.VERSION,
 			sequence: 0,
 			status: "running",
 			stage: "starting",
@@ -467,7 +467,7 @@ class AnimationBench {
 				return;
 			}
 			if (now >= nextUI) {
-				caption.text = "v0.1.23 | "
+				caption.text = "v" + Main.VERSION + " | "
 					+ document.stage
 					+ " | "
 					+ Math.max(0, Math.ceil((CapacityPlan.MAX_MS - (now - startedAt)) / 1000))
