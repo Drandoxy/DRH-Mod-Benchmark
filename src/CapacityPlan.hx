@@ -150,6 +150,62 @@ class CapacityPlan {
 				symbol: "db_fx_charge_release",
 				label: null,
 				nativeScale: 1
+			},
+			{
+				name: "Pyromancer ultimate vortex",
+				path: "Resources/Art2D/FX/db_fx_char_pyro_library.swf",
+				symbol: "db_fx_char_pyro_db",
+				label: null,
+				nativeScale: 1
+			},
+			{
+				name: "Pyromancer ultimate meteor",
+				path: "Resources/Art2D/FX/db_fx_char_pyro_library.swf",
+				symbol: "db_fx_char_pyro_meteor",
+				label: null,
+				nativeScale: 1
+			},
+			{
+				name: "Dragon Knight ultimate",
+				path: "Resources/Art2D/FX/db_fx_char_dragonknight_library.swf",
+				symbol: "db_fx_dk_dbuster_background",
+				label: null,
+				nativeScale: 1
+			},
+			{
+				name: "Dragon Knight ultimate crater",
+				path: "Resources/Art2D/FX/db_fx_char_dragonknight_library.swf",
+				symbol: "db_fx_dk_dbuster_crater",
+				label: null,
+				nativeScale: 1
+			},
+			{
+				name: "Vampire Hunter ultimate",
+				path: "Resources/Art2D/FX/db_fx_library.swf",
+				symbol: "db_fx_garlicNukeSpawn",
+				label: null,
+				nativeScale: 1
+			},
+			{
+				name: "Ghost Samurai ultimate",
+				path: "Resources/Art2D/FX/db_fx_library.swf",
+				symbol: "db_fx_spawnArmorClone",
+				label: null,
+				nativeScale: 1
+			},
+			{
+				name: "Ghost Samurai ultimate fire",
+				path: "Resources/Art2D/FX/db_fx_library.swf",
+				symbol: "db_fx_bluefire",
+				label: null,
+				nativeScale: 1
+			},
+			{
+				name: "Vampire Hunter ultimate circle",
+				path: "Resources/Art2D/FX/db_fx_library.swf",
+				symbol: "db_fx_magicCircleGlow",
+				label: null,
+				nativeScale: 1
 			}
 		];
 
@@ -215,7 +271,7 @@ class CapacityPlan {
 
 	public static inline final ROUND_MS = 4000;
 	public static inline final WARMUP_MS = 250;
-	public static inline final MAX_MS = 60000;
+	public static inline final MAX_MS = 100000;
 
 	public static function assetIndex(kind:Int, n:Int):Int {
 		if (kind == -2)
@@ -224,10 +280,15 @@ class CapacityPlan {
 			return n % 2 == 0 ? 2 : 6;
 		if (kind == -4)
 			return [3, 7, 5, 10, 12, 8, 13, 9, 14, 11][n % 10];
+		if (kind == -6)
+			return ULTIMATES[n % ULTIMATES.length];
 		if (kind == -5)
 			return 15 + n % 2;
 		return kind < 0 ? n % 21 : kind;
 	}
+
+	/** Every hero's ultimate effects (the attack data's TM_DBUSTER_... effect steps), for the all-ultimates round. */
+	static final ULTIMATES = [7, 8, 9, 10, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 
 	public static function requires(kind:Int, index:Int):Bool {
 		if (kind >= 0)
@@ -249,6 +310,12 @@ class CapacityPlan {
 			{name: "Isolated: Ranger flare", count: 16, kind: 9},
 			{name: "Isolated: Ultimate burst", count: 16, kind: 10},
 			{name: "Isolated: Chef meteor", count: 16, kind: 11},
+			{name: "Isolated: Pyromancer ultimate vortex", count: 16, kind: 21},
+			{name: "Isolated: Pyromancer meteor", count: 16, kind: 22},
+			{name: "Isolated: Dragon Knight ultimate", count: 16, kind: 23},
+			{name: "Isolated: Vampire Hunter ultimate", count: 16, kind: 25},
+			{name: "Isolated: Ghost Samurai ultimate", count: 16, kind: 26},
+			{name: "All heroes' ultimates together", count: 78, kind: -6},
 			{name: "Hero ultimates together", count: 40, kind: -4},
 			{name: "Heavy ultimate effects", count: 120, kind: -4},
 			{name: "Extreme mixed finale", count: 160, kind: -1}

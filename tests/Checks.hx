@@ -470,7 +470,7 @@ class Checks {
 		for (_ in 0...(suite.recipes.length + 1))
 			suite.tick(true);
 		suite.available[2] = false;
-		suite.index = 10;
+		suite.index = 16;
 		suite.nextRound();
 		check(suite.phase == "skip" && suite.document.rounds[0].status == "skipped", "missing dragon was silently substituted");
 		suite.finish("stopped");
@@ -492,8 +492,8 @@ class Checks {
 			suite.tick(true);
 		}
 		var completed = new CapacityStore(folder).read();
-		check(!suite.running && completed.status == "complete" && completed.rounds.length == 12, "full protocol failed to finish or save every round");
-		var extreme:Dynamic = completed.rounds[11];
+		check(!suite.running && completed.status == "complete" && completed.rounds.length == CapacityPlan.rounds().length, "full protocol failed to finish or save every round");
+		var extreme:Dynamic = completed.rounds[completed.rounds.length - 1];
 		var totalInstances = 0;
 		for (asset in (cast extreme.assets : Array<Dynamic>))
 			totalInstances += asset.count;
@@ -512,13 +512,13 @@ class Checks {
 			&& capacityText.indexOf("not rendered") >= 0
 			&& townUI.visible, "invisible surface accepted a benchmark result or hid town UI");
 		suite.start();
-		suite.startedAt = haxe.Timer.stamp() * 1000 - 60001;
+		suite.startedAt = haxe.Timer.stamp() * 1000 - CapacityPlan.MAX_MS - 1;
 		suite.tick(false);
-		check(!suite.running && capacityText.indexOf("one-minute time limit") >= 0 && townUI.visible,
-			"one-minute wall limit did not stop and restore the test");
+		check(!suite.running && capacityText.indexOf("time limit") >= 0 && townUI.visible,
+			"wall time limit did not stop and restore the test");
 		suite.dispose();
 		interrupted.dispose();
-		check(CapacityPlan.rounds()[11].count == 160
+		check(CapacityPlan.rounds()[CapacityPlan.rounds().length - 1].count == 160
 			&& CapacityPlan.rounds()[0].count == 0, "capacity protocol is unbounded or has no baseline");
 		for (file in sys.FileSystem.readDirectory(folder))
 			sys.FileSystem.deleteFile(folder + "/" + file);
@@ -570,8 +570,8 @@ class Checks {
 			height: 100.
 		});
 		check(sizing.scaleY == 1.45 && sizing.pivotY == 100, "hero height was normalized by width instead");
-		check(CapacityPlan.rounds().length * (CapacityPlan.ROUND_MS + CapacityPlan.WARMUP_MS) < 55000 && CapacityPlan.MAX_MS == 60000,
-			"protocol exceeds one-minute budget");
+		check(CapacityPlan.rounds().length * (CapacityPlan.ROUND_MS + CapacityPlan.WARMUP_MS) < 90000 && CapacityPlan.MAX_MS == 100000,
+			"protocol exceeds its time budget");
 		AnimationSizing.effect(sizing, {
 			x: -85.1,
 			y: -236.75,
@@ -593,7 +593,7 @@ class Checks {
 				check(row.count == 16 && isolatedKinds.indexOf(row.kind) < 0, "isolated comparisons differ in count or duplicate an effect");
 				isolatedKinds.push(row.kind);
 			}
-		check(isolatedKinds.length == 6
+		check(isolatedKinds.length == 11
 			&& visibleSummary.indexOf("MATCHED EFFECT COMPARISON") >= 0, "matched effect comparison missing from report");
 		trace("PASS: " + count + " benchmark regression checks (offline doubles; native compilation not verified)");
 	}

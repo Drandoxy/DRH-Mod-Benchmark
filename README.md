@@ -11,11 +11,11 @@ A small, movable FPS and ping display works in town, loading screens and dungeon
 
 **Record normal gameplay:** press Start, play, then press Stop. Stop saves local logs and opens a movable, scrollable results window with a readable summary. Details shows timings, scene context, sampled animations and diagnostic warnings. Copy exports the full text. Results reopens the last gameplay recording.
 
-**Test animations:** in town, choose Start full benchmark and confirm the warning. Heavy scenes can freeze or crash the game. Completed rounds are saved automatically. The test uses the game's room artwork, four heroes, dragon breath, Battleheim Lion Fury and native ultimate/explosion effects. Six scenes compare 16 copies of each effect. Mixed scenes increase the load. Twelve rounds aim to finish within one minute; loading and preparation count toward the limit and can leave partial results.
+**Test animations:** in town, choose Start full benchmark and confirm the warning. Heavy scenes can freeze or crash the game. Completed rounds are saved automatically. The test uses the game's room artwork, four heroes, dragon breath, Battleheim Lion Fury, an explosion and every hero's ultimate. Eleven scenes compare 16 copies of each effect, then all ultimates play together. Mixed scenes increase the load. Eighteen rounds aim to finish within about a minute and a half; loading and preparation count toward the limit and can leave partial results.
 
 Each round is saved locally. After an interrupted test, recovered results open on restart. Last full result reopens the saved animation report. The checkpoint identifies the last attempted operation or active animation set, not a proven crash cause. The test continues unfocused while frame callbacks run; background conditions can affect comparisons. Leaving town or changing the viewport stops it. The town interface is temporarily hidden and restored afterward.
 
-Animation results show FPS for each scene and rank matched effect tests. Near-cap ties do not prove an effect has no cost. These are visual tests, without enemy AI, physics or server combat. Gameplay animation correlations are clues, not proven causes.
+Animation results show FPS for each scene and rank matched effect tests. These are visual tests, without enemy AI, physics or server combat. Gameplay animation correlations are clues, not proven causes.
 
 CPU, GPU and process RAM are optional Windows-only readings from the supplied manual process sampler. Unsupported metrics are hidden. It measures only the selected game process and is never started automatically. Benchmark also works without it.
 
@@ -29,7 +29,7 @@ Missing or incompatible game assets stop the controlled test or skip the affecte
 
 Install the release through the DRH Launcher, enable Benchmark and restart the game. Keep API enabled. The default compact display appears near the top center. Move it away from native HUD elements if needed. MODS settings: Full Benchmark and the three Show switches; recording controls belong to the full panel. No extra keyboard bindings are installed.
 
-The mod declares API 1.5.0 and uses native DRH 18 contracts through `extends`. New game versions can require adapter updates. Gameplay recordings and a complete controlled run have been exercised by the author on DRH 18. The controlled protocol completed in 57.5 seconds at a 1920 x 1080 viewport. These observations are not a guarantee for every platform, driver or enabled-mod combination.
+The mod declares API 1.5.0 and uses native DRH 18 and 19 contracts through `extends`. New game versions can require adapter updates. Gameplay recordings and a complete controlled run have been exercised by the author on DRH 18 and 19. The controlled protocol completed in 57.5 seconds at a 1920 x 1080 viewport. These observations are not a guarantee for every platform, driver or enabled-mod combination.
 
 ## Results and files
 
@@ -101,6 +101,10 @@ Mod code is GPL-3.0; see LICENSE. Lucide outlines use the ISC license in `Resour
 - [Mod development and publishing rules](https://github.com/Tutez64/Dungeon-Rampage-Haxe/blob/master/docs/making-a-mod.md)
 
 Run `python tests/run.py --haxe PATH_TO_HAXE` for offline regression fixtures. These use doubles and do not establish native compilation or GPU performance. The official release workflow packs the mod and matching launcher JSON. Source and release audits check UTF-8 text, decoded JSON, file contents and package checksums.
+
+## Changes in 0.1.28
+
+The full benchmark covers every hero's ultimate: the Pyromancer, Dragon Knight, Vampire Hunter and Ghost Samurai ultimates each get their own round, and a new round plays all heroes' ultimates together. The time limit grows to match. The switch descriptions are shorter, so they fit in the Mods settings.
 
 ## Changes in 0.1.27
 

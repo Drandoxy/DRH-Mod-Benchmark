@@ -104,6 +104,7 @@ class AnimationBench {
 		startedAt = clock();
 		loader = facade.assetLoadingComponent;
 		recipes = CapacityPlan.assets();
+		stressCount = recipes.length;
 		var pool = CapacityPlan.heroes();
 		selectedHeroes = [];
 		for (_ in 0...4) {
@@ -449,8 +450,8 @@ class AnimationBench {
 			root.setRequiresRedraw();
 			if (now - startedAt >= CapacityPlan.MAX_MS) {
 				if (phase == "measuring" && frames != null && frames.frames > 0)
-					saveRound("partial: one-minute time limit");
-				finish("finished: one-minute time limit; see completed and partial rounds");
+					saveRound("partial: time limit");
+				finish("finished: time limit reached; see completed and partial rounds");
 				return;
 			}
 

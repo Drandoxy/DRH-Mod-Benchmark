@@ -2,10 +2,10 @@
   "id": "benchmark",
   "name": "Benchmark",
   "description": "Live FPS and ping, optional CPU, GPU VRAM and RAM readings, optional gameplay recording and controlled animation tests.",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "author": "Drandox",
   "api": "1.5.0",
-  "drh": "18",
+  "drh": "18-19",
   "entry": "Main",
   "uses": [
     "extends"

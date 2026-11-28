@@ -16,7 +16,7 @@ class Main extends mods.api.Mod {
 	var liteFrames = 0;
 	var stats:SystemStats;
 	/** The mod version written into reports and captions; keep it equal to mod.json. */
-	public static inline final VERSION = "0.1.27";
+	public static inline final VERSION = "0.1.28";
 
 	var showRam:Flag;
 	var showCpu:Flag;
@@ -75,9 +75,9 @@ class Main extends mods.api.Mod {
 					lite.visible = shown && !full.value;
 			}));
 		full = ctx.settings.flag("fullBenchmark", "Full Benchmark", "On: full recording. Off: live FPS and ping.", false);
-		showCpu = ctx.settings.flag("showCpu", "Show CPU", "Shows the game's share of your whole CPU next to FPS (where the PC's thread count is unknown: the number of cores the game uses).", false);
-		showVram = ctx.settings.flag("showVram", "Show texture memory (VRAM)", "Shows the graphics memory the game's renderer allocated for textures and buffers, by its own count, next to FPS. Not the game's whole VRAM use as Task Manager or the driver counts it, which is often far more.", false);
-		showRam = ctx.settings.flag("showRam", "Show Haxe heap (RAM)", "Shows the Haxe heap next to FPS: the memory of the game's code, about half of what Task Manager shows for the game, garbage not yet collected included.", false);
+		showCpu = ctx.settings.flag("showCpu", "Show CPU", "Shows the game's share of your CPU next to FPS.", false);
+		showVram = ctx.settings.flag("showVram", "Show texture memory (VRAM)", "Shows the renderer's texture memory next to FPS.", false);
+		showRam = ctx.settings.flag("showRam", "Show Haxe heap (RAM)", "Shows the game's Haxe heap memory next to FPS.", false);
 		stats = new SystemStats();
 		// Scene boundaries are API events. They are not inferred from native map internals.
 		subs.push(ctx.onFloorEnter(function(_) boundary("floor-enter")));
