@@ -102,6 +102,10 @@ Mod code is GPL-3.0; see LICENSE. Lucide outlines use the ISC license in `Resour
 
 Run `python tests/run.py --haxe PATH_TO_HAXE` for offline regression fixtures. These use doubles and do not establish native compilation or GPU performance. The official release workflow packs the mod and matching launcher JSON. Source and release audits check UTF-8 text, decoded JSON, file contents and package checksums.
 
+## Changes in 0.1.29
+
+Each scene's drop against the baseline also shows as a share of it, in its own colour: green up to a third slower, amber up to two thirds, red beyond. The FPS label keeps its colour, so a scene can read both "smooth" and "much slower than the baseline".
+
 ## Changes in 0.1.28
 
 The full benchmark covers every hero's ultimate: the Pyromancer, Dragon Knight, Vampire Hunter and Ghost Samurai ultimates each get their own round, and a new round plays all heroes' ultimates together. The time limit grows to match. The switch descriptions are shorter, so they fit in the Mods settings.

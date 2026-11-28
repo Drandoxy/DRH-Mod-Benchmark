@@ -67,7 +67,10 @@ class CapacityStore {
 				base = row.frame;
 			// One line per scene, so every result fits on one screen; scene sizes and timings are under Details.
 			var label = row.frame.fps >= 100 ? "Smooth" : row.frame.fps >= 60 ? "Moderate load" : row.frame.fps >= 30 ? "Heavy load" : "Very heavy load";
-			var below = base != null && row.count > 0 ? " | -" + FrameWindow.round(Math.max(0, base.fps - row.frame.fps)) + " vs baseline" : "";
+			// The drop also as a share of the baseline: the report colours it apart from the FPS label.
+			var drop = base == null ? 0. : Math.max(0, base.fps - row.frame.fps);
+			var share = base == null || base.fps <= 0 ? 0 : Math.round(drop / base.fps * 100);
+			var below = base != null && row.count > 0 ? " | -" + FrameWindow.round(drop) + " vs baseline (-" + share + "%)" : "";
 			lines.push(row.name + " - " + row.frame.fps + " FPS | " + label + below + (row.status == "complete" ? "" : " | " + row.status));
 			if (row.count > 0 && row.status == "complete" && (slowest == null || row.frame.fps < slowest.frame.fps))
 				slowest = row;

@@ -10,6 +10,17 @@ class ReportMarkup {
 		return split < 0 ? content : details ? content.substr(split) : content.substr(0, split);
 	}
 
+	/** The drop in a scene line ("vs baseline (-45%)"), or -1 when the line has none. */
+	public static function dropShare(line:String):Int {
+		var pattern = ~/vs baseline \(-([0-9]+)%\)/;
+		return pattern.match(line) ? Std.parseInt(pattern.matched(1)) : -1;
+	}
+
+	/** Green up to a third slower than the baseline, amber up to two thirds, then red. */
+	public static function dropColor(share:Int):Int {
+		return share < 34 ? 0x80D5B6 : share < 67 ? 0xEBC77D : 0xF0AA86;
+	}
+
 	public static function apply(field:TextField, content:String, details:Bool):Void {
 		field.multiline = true;
 		field.wordWrap = true;
@@ -24,6 +35,12 @@ class ReportMarkup {
 						|| clean.indexOf("Worst recorded") == 0 ? 0xEBC77D : 0xD2DEE8;
 			if (line.length > 0)
 				field.setTextFormat(new TextFormat("_sans", 14, color, heading), offset, offset + line.length);
+			// The FPS label keeps its colour; the drop against the baseline gets its own, so a scene can read
+			// "good FPS" and "much slower than the baseline" at once.
+			var at = line.indexOf("| -");
+			var share = dropShare(line);
+			if (at >= 0 && share >= 0)
+				field.setTextFormat(new TextFormat("_sans", 14, dropColor(share), false), offset + at, offset + line.length);
 			offset += line.length + 1;
 		}
 	}

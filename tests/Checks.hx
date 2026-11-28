@@ -215,6 +215,9 @@ class Checks {
 		check(ui.cards[5].x - ui.cards[0].x == 156 && ui.panelHeight == 290, "compact spacing changed");
 		check(ReportMarkup.select("YOUR RESULTS, EXPLAINED\nMost frames <safe>\nTECHNICAL DETAILS\nraw", false).indexOf("<safe>") >= 0,
 			"plain report did not preserve literal content");
+		check(ReportMarkup.dropShare("Isolated: X - 140 FPS | Smooth | -659.5 vs baseline (-82%)") == 82, "drop share not read");
+		check(ReportMarkup.dropShare("Four-hero room baseline - 799.5 FPS | Smooth") == -1, "baseline line has no drop");
+		check(ReportMarkup.dropColor(10) == 0x80D5B6 && ReportMarkup.dropColor(50) == 0xEBC77D && ReportMarkup.dropColor(82) == 0xF0AA86, "drop colours");
 		check(ReportMarkup.select("Summary\nTECHNICAL DETAILS\nraw", false).indexOf("raw") < 0, "summary includes technical noise");
 		ui.report("Full report text");
 		ui.copyResults();

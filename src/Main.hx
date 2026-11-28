@@ -16,7 +16,7 @@ class Main extends mods.api.Mod {
 	var liteFrames = 0;
 	var stats:SystemStats;
 	/** The mod version written into reports and captions; keep it equal to mod.json. */
-	public static inline final VERSION = "0.1.28";
+	public static inline final VERSION = "0.1.29";
 
 	var showRam:Flag;
 	var showCpu:Flag;
